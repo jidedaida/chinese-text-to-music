@@ -1,0 +1,121 @@
+{
+  "revision": "622c2f1c32c8cfce4158ddc3eb26e518ddef37e5",
+  "license": "CC-BY-3.0",
+  "files": [
+    {
+      "path": "public/audio/piano/A1.mp3",
+      "bytes": 382518,
+      "sha256": "31cac79b1c077e78f51eb725ab11bece140e537513668b92ef87fe1be0a1027e"
+    },
+    {
+      "path": "public/audio/piano/A2.mp3",
+      "bytes": 230400,
+      "sha256": "557d453048c86cec76a5f674963aa52119507f6b886b41e5b60d050526447ce8"
+    },
+    {
+      "path": "public/audio/piano/A3.mp3",
+      "bytes": 200352,
+      "sha256": "fdd984a8e4bfd27fbe92e071635dd1f5ca90c1aec6102270eb52b46d7d64f14a"
+    },
+    {
+      "path": "public/audio/piano/A4.mp3",
+      "bytes": 159036,
+      "sha256": "a3b829eb92b37fd1174227bc83757f3a62bc3f9efbaf79503e83447c52338d44"
+    },
+    {
+      "path": "public/audio/piano/A5.mp3",
+      "bytes": 122728,
+      "sha256": "d121012517f4985f66a72eb3947a9f5de3d7489260c6deb97022191d23670212"
+    },
+    {
+      "path": "public/audio/piano/A6.mp3",
+      "bytes": 70144,
+      "sha256": "857dd0dfdf42a7c11c5a0934b96bec4954377a68a8e0d65921c14ee5e8179f1a"
+    },
+    {
+      "path": "public/audio/violin/A3.mp3",
+      "bytes": 390656,
+      "sha256": "22573e45ae1dd09043c4456ccb9835a067fee8222e7170b5d3d4c564562b98b1"
+    },
+    {
+      "path": "public/audio/violin/A4.mp3",
+      "bytes": 339950,
+      "sha256": "b51bab05788a078a1ab8480acae9aa96bf2072aafe237991e414759fb0005243"
+    },
+    {
+      "path": "public/audio/violin/A5.mp3",
+      "bytes": 271716,
+      "sha256": "d7649681176736f820a3ff460fbfb1656922b4da0150ec7df4527b01c9bd8ffe"
+    },
+    {
+      "path": "public/audio/violin/A6.mp3",
+      "bytes": 280480,
+      "sha256": "c33528ac62990bb91da223dded7301cf9d843ebd69e9c570bcfd06a597cfc093"
+    },
+    {
+      "path": "public/audio/violin/C4.mp3",
+      "bytes": 318666,
+      "sha256": "47a86f01f5a9f978e3328d72ecc3d12ad72cc18852676f655090e68c34b87d8c"
+    },
+    {
+      "path": "public/audio/violin/C5.mp3",
+      "bytes": 341202,
+      "sha256": "51315c5bce2c5186d0ac5bd69b72d632bc6188c9401a19212998fcd11ba2934a"
+    },
+    {
+      "path": "public/audio/violin/C6.mp3",
+      "bytes": 295504,
+      "sha256": "85c103492bd20f3bcf8eab6fd3de5f41853c98259b7d92a6a2ca169861d21f7c"
+    },
+    {
+      "path": "public/audio/violin/G3.mp3",
+      "bytes": 400672,
+      "sha256": "4425d83aa3e497c3a38aba0d81821fa253b4d7ba5bc99ee51932f3af7587406b"
+    },
+    {
+      "path": "public/audio/violin/G4.mp3",
+      "bytes": 323048,
+      "sha256": "37ea8621e0217d18c832864913a5a4615208733b38c7c5fcfcb347e40c16fe67"
+    },
+    {
+      "path": "public/audio/violin/G5.mp3",
+      "bytes": 303642,
+      "sha256": "9de7664fafe3f81d2db6007d1ff19b0223afbfe3fe6c6dac8ad74be00105d1ec"
+    },
+    {
+      "path": "public/audio/violin/G6.mp3",
+      "bytes": 295504,
+      "sha256": "d3ea04ed0d8315dc53dddce930603e76bad9431d772c94bce7e736a95ca719e4"
+    },
+    {
+      "path": "public/audio/cello/C2.mp3",
+      "bytes": 93306,
+      "sha256": "800cd97bcffd99fc80680d39b73d5143f7ea3188b79244bc3f1bad4845d28fb4"
+    },
+    {
+      "path": "public/audio/cello/C3.mp3",
+      "bytes": 75778,
+      "sha256": "bde16914903926f7b7924756e9e28617d9357fe1f7d7085b0d06cedeb527e62a"
+    },
+    {
+      "path": "public/audio/cello/C4.mp3",
+      "bytes": 80160,
+      "sha256": "e652c5eafaec4fb339da2595daf5554005f39357fac3f6c093b0d0f594b1012b"
+    },
+    {
+      "path": "public/audio/cello/C5.mp3",
+      "bytes": 81412,
+      "sha256": "d2f71abde898fc86c86a252fc1a6d7316bc4dd57bb2200eacdbc41cfca38c08e"
+    },
+    {
+      "path": "public/audio/upstream/LICENSE.md",
+      "bytes": 1161,
+      "sha256": "a98934bef76e4832a20a3dd8e3928cbd6175eba3a651b43256b5f23ce5cfd501"
+    },
+    {
+      "path": "public/audio/upstream/sample-source-info.txt",
+      "bytes": 699,
+      "sha256": "6c098693e0699ed206b23c17097abe4db18241369e7ced8e7e7c800ce1e86578"
+    }
+  ]
+}
