@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="860" viewBox="0 0 1500 860">
+  <defs>
+    <pattern id="grid" width="44" height="34" patternUnits="userSpaceOnUse">
+      <path d="M44 0H0V34" fill="none" stroke="#e7e2d8" stroke-width="1"/>
+    </pattern>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#3b352b" flood-opacity=".12"/>
+    </filter>
+    <style>
+      .sans{font-family:"Microsoft YaHei","Noto Sans CJK SC",sans-serif}.serif{font-family:"SimSun","Songti SC",serif}
+      .title{font-size:34px;font-weight:700;fill:#24211d}.sub{font-size:17px;fill:#716b61}.cardtitle{font-size:23px;font-weight:700;fill:#24211d}.copy{font-size:16px;fill:#716b61}.ui{font-size:13px;fill:#29251f}.tiny{font-size:11px;fill:#716b61}
+    </style>
+  </defs>
+  <rect width="1500" height="860" fill="#f4f0e7"/>
+  <text class="sans title" x="70" y="68">文字音乐工作台：三种界面结构</text>
+  <text class="sans sub" x="70" y="101">都支持原文同步高亮、二维音序视图与完整短曲播放</text>
+
+  <!-- A -->
+  <g transform="translate(55 145)" filter="url(#shadow)">
+    <rect width="440" height="650" rx="22" fill="#fffdf8" stroke="#d5cfc2"/>
+    <rect x="18" y="18" width="404" height="420" rx="14" fill="#eee9de"/>
+    <text class="sans ui" x="36" y="50" font-weight="700">字 谱</text>
+    <rect x="328" y="31" width="76" height="27" rx="14" fill="#fffdf8" stroke="#c9c1b4"/>
+    <text class="sans tiny" x="342" y="49">生成音乐</text>
+    <rect x="35" y="72" width="370" height="55" rx="9" fill="#fffdf8" stroke="#d5cfc2"/>
+    <text class="serif ui" x="52" y="105">春风吹过山谷，星光落在河面。</text>
+    <rect x="35" y="140" width="370" height="232" rx="9" fill="#fffdf8" stroke="#d5cfc2"/>
+    <rect x="35" y="140" width="370" height="232" rx="9" fill="url(#grid)"/>
+    <line x1="225" y1="140" x2="225" y2="372" stroke="#29251f" stroke-width="2" opacity=".65"/>
+    <g stroke-linecap="round" stroke-width="10">
+      <path d="M58 324h42" stroke="#248d72"/><path d="M112 296h35" stroke="#248d72"/>
+      <path d="M161 255h48" stroke="#d55a32"/><path d="M223 276h31" stroke="#d55a32"/>
+      <path d="M269 220h43" stroke="#7168ca"/><path d="M326 190h32" stroke="#7168ca"/>
+      <path d="M370 244h26" stroke="#e5a126"/>
+    </g>
+    <rect x="35" y="386" width="82" height="31" rx="16" fill="#24211d"/><text class="sans ui" x="55" y="407" fill="#fffdf8">▶ 00:18</text>
+    <rect x="127" y="386" width="86" height="31" rx="16" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans ui" x="143" y="407">C · 五声</text>
+    <rect x="223" y="386" width="83" height="31" rx="16" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans ui" x="240" y="407">92 BPM</text>
+    <text class="sans cardtitle" x="26" y="485">A · 音序器优先</text>
+    <text class="sans copy" x="26" y="521">二维音序画布最大，原文只是输入区。</text>
+    <text class="sans copy" x="26" y="548">更像音乐工具，适合观察旋律结构。</text>
+  </g>
+
+  <!-- B -->
+  <g transform="translate(530 145)" filter="url(#shadow)">
+    <rect width="440" height="650" rx="22" fill="#fffdf8" stroke="#24211d" stroke-width="3"/>
+    <rect x="18" y="18" width="404" height="420" rx="14" fill="#eee9de"/>
+    <text class="sans ui" x="36" y="50" font-weight="700">字 谱</text>
+    <circle cx="337" cy="44" r="11" fill="#fffdf8" stroke="#c9c1b4"/><circle cx="369" cy="44" r="11" fill="#fffdf8" stroke="#c9c1b4"/><circle cx="401" cy="44" r="11" fill="#fffdf8" stroke="#c9c1b4"/>
+    <rect x="35" y="73" width="132" height="286" rx="9" fill="#fffdf8" stroke="#d5cfc2"/>
+    <text class="serif ui" x="52" y="105">春风吹过</text>
+    <rect x="48" y="117" width="43" height="24" rx="4" fill="#f4d9cb"/><text class="serif ui" x="52" y="134" fill="#b8472a">山谷</text><text class="serif ui" x="93" y="134">，星光</text>
+    <text class="serif ui" x="52" y="164">落在河面。</text><text class="serif ui" x="52" y="210">每个词，</text><text class="serif ui" x="52" y="239">都有声音。</text>
+    <rect x="178" y="73" width="227" height="286" rx="9" fill="#fffdf8" stroke="#d5cfc2"/>
+    <rect x="178" y="73" width="227" height="286" rx="9" fill="url(#grid)"/>
+    <line x1="290" y1="73" x2="290" y2="359" stroke="#29251f" stroke-width="2" opacity=".65"/>
+    <g stroke-linecap="round" stroke-width="10">
+      <path d="M193 310h26" stroke="#248d72"/><path d="M229 282h22" stroke="#248d72"/>
+      <path d="M259 236h30" stroke="#d55a32"/><path d="M297 259h20" stroke="#d55a32"/>
+      <path d="M327 199h28" stroke="#7168ca"/><path d="M364 164h20" stroke="#7168ca"/>
+      <path d="M390 224h9" stroke="#e5a126"/>
+    </g>
+    <rect x="35" y="376" width="42" height="31" rx="16" fill="#24211d"/><text class="sans ui" x="50" y="397" fill="#fffdf8">▶</text>
+    <rect x="87" y="376" width="62" height="31" rx="16" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans ui" x="103" y="397">平静</text>
+    <rect x="159" y="376" width="82" height="31" rx="16" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans ui" x="176" y="397">92 BPM</text>
+    <rect x="251" y="376" width="62" height="31" rx="16" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans ui" x="267" y="397">导出</text>
+    <text class="sans cardtitle" x="26" y="485">B · 原文与音乐并排</text>
+    <text class="sans copy" x="26" y="521">左侧读原文，右侧看音乐指纹；</text>
+    <text class="sans copy" x="26" y="548">播放时词语与音符同步高亮。</text>
+    <rect x="26" y="575" width="70" height="28" rx="14" fill="#24211d"/><text class="sans tiny" x="46" y="594" fill="#fffdf8">推荐</text>
+  </g>
+
+  <!-- C -->
+  <g transform="translate(1005 145)" filter="url(#shadow)">
+    <rect width="440" height="650" rx="22" fill="#fffdf8" stroke="#d5cfc2"/>
+    <rect x="18" y="18" width="404" height="420" rx="14" fill="#eee9de"/>
+    <text class="sans ui" x="36" y="50" font-weight="700">字 谱</text>
+    <rect x="314" y="31" width="90" height="27" rx="14" fill="#fffdf8" stroke="#c9c1b4"/><text class="sans tiny" x="332" y="49">▶ 播放全文</text>
+    <g transform="translate(35 74)">
+      <g><rect width="370" height="68" rx="9" fill="#fffdf8" stroke="#d5cfc2"/><text class="serif ui" x="13" y="25">春风吹过山谷，</text><rect x="13" y="41" width="330" height="9" rx="5" fill="#248d72"/></g>
+      <g transform="translate(0 78)"><rect width="370" height="68" rx="9" fill="#fffdf8" stroke="#d5cfc2"/><rect x="10" y="8" width="118" height="25" rx="4" fill="#f4d9cb"/><text class="serif ui" x="13" y="25" fill="#b8472a">星光落在河面。</text><rect x="13" y="41" width="330" height="9" rx="5" fill="#7168ca"/></g>
+      <g transform="translate(0 156)"><rect width="370" height="68" rx="9" fill="#fffdf8" stroke="#d5cfc2"/><text class="serif ui" x="13" y="25">每个词，都有声音。</text><rect x="13" y="41" width="330" height="9" rx="5" fill="#d55a32"/></g>
+      <g transform="translate(0 234)"><rect width="370" height="68" rx="9" fill="#fffdf8" stroke="#d5cfc2"/><text class="serif ui" x="13" y="25">标点让旋律呼吸。</text><rect x="13" y="41" width="330" height="9" rx="5" fill="#e5a126"/></g>
+    </g>
+    <text class="sans cardtitle" x="26" y="485">C · 阅读乐谱</text>
+    <text class="sans copy" x="26" y="521">每句话与音乐轨迹纵向排列。</text>
+    <text class="sans copy" x="26" y="548">更像数字诗集，适合顺序浏览。</text>
+  </g>
+</svg>
