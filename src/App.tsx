@@ -1,6 +1,7 @@
 import { useReducer } from 'react';
 import { Compatibility } from './components/Compatibility';
 import { ControlPanel } from './components/ControlPanel';
+import { SequencerCanvas } from './components/SequencerCanvas';
 import { TextPanel } from './components/TextPanel';
 import { TransportBar } from './components/TransportBar';
 import { validateInput } from './domain/input';
@@ -65,8 +66,17 @@ export function App() {
           onChange={(text) => dispatch({ type: 'EDIT_TEXT', text })}
           onSeekToken={seekToken}
         />
-        <section className="panel sequencer-placeholder" aria-label="二维音序器">
-          {state.score ? `${state.score.noteEvents.length} 个音符事件` : '生成后在这里显示曲谱'}
+        <section className="panel sequencer-panel" aria-label="曲谱画布">
+          {state.score ? (
+            <SequencerCanvas
+              score={state.score}
+              playheadSeconds={state.playheadSeconds}
+              activeTokenId={state.activeTokenId}
+              onSeekToken={seekToken}
+            />
+          ) : (
+            <div className="empty-score">生成后在这里显示曲谱</div>
+          )}
         </section>
         <ControlPanel
           settings={state.settings}
