@@ -48,4 +48,4 @@
 
 ## 状态
 
-正式设计已经整理到 `docs/superpowers/specs/2026-09-17-chinese-text-to-music-design.md`，目前等待书面规格复核，尚未进入代码实现。
+正式设计已经通过，实施计划已整理到 `docs/superpowers/plans/2026-09-17-chinese-text-to-music-implementation.md`。目前尚未进入代码实现，下一步按计划分任务执行。
