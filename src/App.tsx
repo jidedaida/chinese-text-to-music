@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef } from 'react';
 import { AudioEngine } from './audio/engine';
+import { exportScoreWav } from './audio/exporter';
 import { Compatibility } from './components/Compatibility';
 import { ControlPanel } from './components/ControlPanel';
 import { SequencerCanvas } from './components/SequencerCanvas';
@@ -132,7 +133,25 @@ export function App() {
           engineRef.current!.setVolume(volume);
           dispatch({ type: 'VOLUME', volume });
         }}
-        onExport={() => dispatch({ type: 'EXPORT' })}
+        onExport={async () => {
+          if (!state.score) return;
+          dispatch({ type: 'EXPORT' });
+          try {
+            const blob = await exportScoreWav(state.score);
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `zipu-${state.score.musicHash.slice(0, 10)}.wav`;
+            anchor.click();
+            URL.revokeObjectURL(url);
+            dispatch({ type: 'EXPORT_FINISHED' });
+          } catch (error) {
+            dispatch({
+              type: 'EXPORT_FAILED',
+              message: error instanceof Error ? error.message : 'WAV 导出失败，请关闭其他标签页后重试',
+            });
+          }
+        }}
       />
     </main>
   );
