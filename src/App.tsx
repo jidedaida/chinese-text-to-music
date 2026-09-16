@@ -1,4 +1,5 @@
-import { useReducer } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
+import { AudioEngine } from './audio/engine';
 import { Compatibility } from './components/Compatibility';
 import { ControlPanel } from './components/ControlPanel';
 import { SequencerCanvas } from './components/SequencerCanvas';
@@ -11,9 +12,13 @@ import { analyzeText, initializeTextAnalyzer } from './text/analyze';
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialAppState);
+  const engineRef = useRef<AudioEngine | null>(null);
+  engineRef.current ??= new AudioEngine();
+  useEffect(() => () => engineRef.current?.dispose(), []);
   const validation = validateInput(state.text);
 
   async function generate() {
+    engineRef.current?.stop();
     dispatch({ type: 'GENERATE' });
     try {
       await initializeTextAnalyzer();
@@ -32,6 +37,7 @@ export function App() {
       (item) => item.trackId === 'melody' && item.tokenId === tokenId,
     );
     if (!event || !state.score) return;
+    engineRef.current?.seek(event.startBeat * 60 / state.score.settings.bpm);
     dispatch({
       type: 'SEEK',
       playheadSeconds: event.startBeat * 60 / state.score.settings.bpm,
@@ -63,7 +69,10 @@ export function App() {
           text={state.text}
           score={state.score}
           activeTokenId={state.activeTokenId}
-          onChange={(text) => dispatch({ type: 'EDIT_TEXT', text })}
+          onChange={(text) => {
+            engineRef.current?.stop();
+            dispatch({ type: 'EDIT_TEXT', text });
+          }}
           onSeekToken={seekToken}
         />
         <section className="panel sequencer-panel" aria-label="曲谱画布">
@@ -82,7 +91,10 @@ export function App() {
           settings={state.settings}
           disabled={['generating', 'exporting', 'playing'].includes(state.phase)}
           canGenerate={validation.code === 'valid'}
-          onChange={(settings) => dispatch({ type: 'EDIT_SETTINGS', settings })}
+          onChange={(settings) => {
+            engineRef.current?.stop();
+            dispatch({ type: 'EDIT_SETTINGS', settings });
+          }}
           onGenerate={generate}
         />
       </div>
@@ -93,10 +105,33 @@ export function App() {
         currentSeconds={state.playheadSeconds}
         durationSeconds={state.score?.durationSeconds ?? 0}
         volume={state.volume}
-        onPlay={() => dispatch({ type: 'PLAY' })}
-        onPause={() => dispatch({ type: 'PAUSE', playheadSeconds: state.playheadSeconds })}
-        onStop={() => dispatch({ type: 'STOP' })}
-        onVolumeChange={(volume) => dispatch({ type: 'VOLUME', volume })}
+        onPlay={async () => {
+          if (!state.score) return;
+          dispatch({ type: 'PLAY' });
+          try {
+            const fallback = await engineRef.current!.play(
+              state.score,
+              state.playheadSeconds,
+              (playheadSeconds, tokenId) => dispatch({ type: 'PLAYHEAD', playheadSeconds, tokenId }),
+              () => dispatch({ type: 'STOP' }),
+            );
+            dispatch({
+              type: 'NOTICE',
+              message: fallback ? '钢琴或弦乐采样加载失败，正在使用兼容合成音色。' : null,
+            });
+          } catch (error) {
+            dispatch({
+              type: 'PLAY_FAILED',
+              message: error instanceof Error ? error.message : '音频启动失败，请再次点击播放',
+            });
+          }
+        }}
+        onPause={() => dispatch({ type: 'PAUSE', playheadSeconds: engineRef.current!.pause() })}
+        onStop={() => { engineRef.current!.stop(); dispatch({ type: 'STOP' }); }}
+        onVolumeChange={(volume) => {
+          engineRef.current!.setVolume(volume);
+          dispatch({ type: 'VOLUME', volume });
+        }}
         onExport={() => dispatch({ type: 'EXPORT' })}
       />
     </main>

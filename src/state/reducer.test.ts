@@ -30,4 +30,16 @@ describe('application reducer', () => {
     expect(stopped.playheadSeconds).toBe(0);
     expect(stopped.score).toBe(ready.score);
   });
+
+  it('advances the playhead without clearing the active token on timer ticks', () => {
+    const playing = {
+      ...initialAppState,
+      phase: 'playing' as const,
+      score: { musicHash: 'abc' } as never,
+      activeTokenId: 'token-0',
+    };
+    const next = reducer(playing, { type: 'PLAYHEAD', playheadSeconds: 2.5, tokenId: null });
+    expect(next.playheadSeconds).toBe(2.5);
+    expect(next.activeTokenId).toBe('token-0');
+  });
 });

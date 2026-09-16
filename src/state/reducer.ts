@@ -48,6 +48,7 @@ export type AppAction =
   | { type: 'PAUSE'; playheadSeconds: number }
   | { type: 'STOP' }
   | { type: 'SEEK'; playheadSeconds: number; tokenId: string | null }
+  | { type: 'PLAYHEAD'; playheadSeconds: number; tokenId: string | null }
   | { type: 'EXPORT' }
   | { type: 'EXPORT_FINISHED' }
   | { type: 'EXPORT_FAILED'; message: string }
@@ -90,6 +91,12 @@ export function reducer(state: AppState, action: AppAction): AppState {
       };
     case 'SEEK':
       return { ...state, playheadSeconds: action.playheadSeconds, activeTokenId: action.tokenId };
+    case 'PLAYHEAD':
+      return {
+        ...state,
+        playheadSeconds: action.playheadSeconds,
+        activeTokenId: action.tokenId ?? state.activeTokenId,
+      };
     case 'EXPORT':
       return state.score ? { ...state, phase: 'exporting', error: null } : state;
     case 'EXPORT_FINISHED':
