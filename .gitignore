@@ -2,6 +2,10 @@
 .worktrees/
 node_modules/
 dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
 .env
 .env.*
 *.log
