@@ -16,18 +16,28 @@ export function App() {
   const [state, dispatch] = useReducer(reducer, initialAppState);
   const previewLabel = releaseLabel();
   const engineRef = useRef<LazyAudioEngine | null>(null);
+  const generationRequestRef = useRef(0);
   engineRef.current ??= new LazyAudioEngine();
-  useEffect(() => () => engineRef.current?.dispose(), []);
+  useEffect(() => () => {
+    generationRequestRef.current += 1;
+    engineRef.current?.dispose();
+  }, []);
   const validation = validateInput(state.text);
 
   async function generate() {
+    const requestId = ++generationRequestRef.current;
+    const text = state.text;
+    const settings = state.settings;
     engineRef.current?.stop();
     dispatch({ type: 'GENERATE' });
     try {
       await initializeTextAnalyzer();
-      const score = await composeScore(analyzeText(state.text), state.settings);
+      if (requestId !== generationRequestRef.current) return;
+      const score = await composeScore(analyzeText(text), settings);
+      if (requestId !== generationRequestRef.current) return;
       dispatch({ type: 'GENERATION_SUCCEEDED', score });
     } catch (error) {
+      if (requestId !== generationRequestRef.current) return;
       dispatch({
         type: 'GENERATION_FAILED',
         message: error instanceof Error ? error.message : '生成失败，请重试',
@@ -99,6 +109,7 @@ export function App() {
           score={state.score}
           activeTokenId={state.activeTokenId}
           onChange={(text) => {
+            generationRequestRef.current += 1;
             engineRef.current?.stop();
             dispatch({ type: 'EDIT_TEXT', text });
           }}
@@ -121,6 +132,7 @@ export function App() {
           disabled={['generating', 'exporting', 'playing'].includes(state.phase)}
           canGenerate={validation.code === 'valid'}
           onChange={(settings) => {
+            generationRequestRef.current += 1;
             engineRef.current?.stop();
             dispatch({ type: 'EDIT_SETTINGS', settings });
           }}

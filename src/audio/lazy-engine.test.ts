@@ -13,6 +13,16 @@ function engine(): AudioEnginePort {
   };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
 describe('LazyAudioEngine', () => {
   it('loads once and reuses the engine', async () => {
     const instance = engine();
@@ -84,5 +94,61 @@ describe('LazyAudioEngine', () => {
     await expect(lazy.play(score, 0, vi.fn())).rejects.toThrow('offline');
     await expect(lazy.play(score, 0, vi.fn())).resolves.toBe(false);
     expect(factory).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ['stop', (lazy: LazyAudioEngine) => lazy.stop()],
+    ['pause', (lazy: LazyAudioEngine) => lazy.pause()],
+    ['dispose', (lazy: LazyAudioEngine) => lazy.dispose()],
+    ['a superseding play', (lazy: LazyAudioEngine) => lazy.play(score, 1, vi.fn())],
+  ])('suppresses an inner play result and callbacks after %s', async (_label, invalidate) => {
+    const playback = deferred<boolean | undefined>();
+    const instance = engine();
+    instance.play = vi.fn()
+      .mockImplementationOnce(() => playback.promise)
+      .mockResolvedValueOnce(false);
+    const lazy = new LazyAudioEngine(vi.fn().mockResolvedValue(instance));
+    const onUpdate = vi.fn();
+    const onEnded = vi.fn();
+
+    const play = lazy.play(score, 0, onUpdate, onEnded);
+    await vi.waitFor(() => expect(instance.play).toHaveBeenCalledOnce());
+    await invalidate(lazy);
+
+    const firstCall = vi.mocked(instance.play).mock.calls[0];
+    firstCall[2](4, 'token-1');
+    firstCall[3]?.();
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(onEnded).not.toHaveBeenCalled();
+
+    playback.resolve(true);
+    await expect(play).resolves.toBeUndefined();
+  });
+
+  it('suppresses an inner play rejection after invalidation', async () => {
+    const playback = deferred<boolean | undefined>();
+    const instance = engine();
+    instance.play = vi.fn(() => playback.promise);
+    const lazy = new LazyAudioEngine(vi.fn().mockResolvedValue(instance));
+
+    const play = lazy.play(score, 0, vi.fn());
+    await vi.waitFor(() => expect(instance.play).toHaveBeenCalledOnce());
+    lazy.stop();
+    playback.reject(new Error('playback failed'));
+
+    await expect(play).resolves.toBeUndefined();
+  });
+
+  it('reports a live inner play rejection', async () => {
+    const playback = deferred<boolean | undefined>();
+    const instance = engine();
+    instance.play = vi.fn(() => playback.promise);
+    const lazy = new LazyAudioEngine(vi.fn().mockResolvedValue(instance));
+
+    const play = lazy.play(score, 0, vi.fn());
+    await vi.waitFor(() => expect(instance.play).toHaveBeenCalledOnce());
+    playback.reject(new Error('playback failed'));
+
+    await expect(play).rejects.toThrow('playback failed');
   });
 });

@@ -67,7 +67,23 @@ export class LazyAudioEngine {
       throw error;
     }
     if (requestId !== this.requestId) return undefined;
-    return instance.play(score, fromSeconds, onUpdate, onEnded);
+    try {
+      const result = await instance.play(
+        score,
+        fromSeconds,
+        (seconds, tokenId) => {
+          if (requestId === this.requestId) onUpdate(seconds, tokenId);
+        },
+        () => {
+          if (requestId === this.requestId) onEnded();
+        },
+      );
+      if (requestId !== this.requestId) return undefined;
+      return result;
+    } catch (error) {
+      if (requestId !== this.requestId) return undefined;
+      throw error;
+    }
   }
 
   pause(): number {

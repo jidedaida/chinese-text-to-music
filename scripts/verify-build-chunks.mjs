@@ -54,14 +54,21 @@ const toneRuntimeMarkers = [
   'https://github.com/Tonejs/Tone.js/wiki/Accurate-Timing',
   'ToneAudioNode does not have any internal nodes',
 ];
+const eagerToneMarkers = new Map();
 for (const key of eager) {
   const file = manifest[key]?.file;
   if (!file) continue;
   const source = await readFile(`dist/${file}`, 'utf8');
-  if (toneRuntimeMarkers.every((marker) => source.includes(marker))) {
-    throw new Error(`Eager build contains the Tone runtime: ${key}`);
+  for (const marker of toneRuntimeMarkers) {
+    if (source.includes(marker) && !eagerToneMarkers.has(marker)) {
+      eagerToneMarkers.set(marker, key);
+    }
   }
   const size = (await stat(`dist/${file}`)).size;
   console.log(`${key}: ${(size / 1024).toFixed(1)} KiB`);
+}
+if (toneRuntimeMarkers.every((marker) => eagerToneMarkers.has(marker))) {
+  const files = [...new Set(eagerToneMarkers.values())];
+  throw new Error(`Eager build contains the Tone runtime: ${files.join(', ')}`);
 }
 console.log('Verified lazy dictionary and audio chunk boundaries.');
