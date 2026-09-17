@@ -10,6 +10,10 @@ function voiceFor(event: NoteEvent, bank: InstrumentBank): Voice {
   return bank.melody;
 }
 
+function midiToFrequency(midi: number): number {
+  return 440 * 2 ** ((midi - 69) / 12);
+}
+
 export function scheduleScoreEvents(
   events: NoteEvent[],
   bpm: number,
@@ -22,7 +26,7 @@ export function scheduleScoreEvents(
     const durationSeconds = event.durationBeats * 60 / bpm;
     schedule(startSeconds, (audioTime) => {
       voiceFor(event, bank).triggerAttackRelease(
-        event.midi,
+        midiToFrequency(event.midi),
         durationSeconds,
         audioTime,
         event.velocity,

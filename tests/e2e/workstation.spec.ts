@@ -13,9 +13,29 @@ test('generates a score, synchronizes UI state, and never transmits text', async
   await page.getByRole('button', { name: '生成音乐' }).click();
   await expect(page.getByText('曲目已生成')).toBeVisible();
   await expect(page.getByLabel('二维音序器')).toBeVisible();
+  const reader = page.getByLabel('分词与播放位置');
+  const secondWord = reader.locator('button:not([disabled])').nth(1);
+  const thirdWord = reader.locator('button:not([disabled])').nth(2);
+  await secondWord.click();
+  await thirdWord.click();
+  await secondWord.click();
+  await expect(secondWord).toHaveClass(/active/u);
+  await expect(page.getByRole('button', { name: '暂停' })).toBeEnabled();
+  await expect(page.getByLabel('播放时间')).not.toHaveText(/0:00 \/ /u);
+  await page.getByRole('button', { name: '暂停' }).click();
+  await expect(page.getByRole('button', { name: '播放' })).toBeEnabled();
+  await page.getByRole('button', { name: '停止' }).click();
+  await expect(page.getByLabel('播放时间')).toHaveText(/^0:00 \/ /u);
+  await page.getByLabel('音阶').selectOption('natural-minor');
+  await expect(page.getByText('文字或参数已变化，请重新生成')).toBeVisible();
+  await page.getByRole('button', { name: '生成音乐' }).click();
+  await expect(page.getByText('曲目已生成')).toBeVisible();
   await page.getByLabel('中文原文').fill(`${text}清晨`);
   await expect(page.getByText('文字或参数已变化，请重新生成')).toBeVisible();
   expect(outbound.join('\n')).not.toContain(text);
+  await page.reload();
+  await expect(page.getByLabel('中文原文')).toHaveValue('');
+  await expect(page.getByRole('button', { name: '生成音乐' })).toBeDisabled();
 });
 
 test('exports a playable-looking WAV download', async ({ page }) => {
@@ -50,4 +70,15 @@ test('supports keyboard focus and shows a narrow-screen notice', async ({ page }
   await expect(page.locator(':focus')).toBeVisible();
   await page.setViewportSize({ width: 800, height: 900 });
   await expect(page.getByText('第一版需要桌面宽屏')).toBeVisible();
+});
+
+test('falls back to synthesized voices when licensed samples fail to load', async ({ page }) => {
+  await page.route('**/audio/**/*.mp3', (route) => route.abort('failed'));
+  await page.goto('/');
+  await page.getByLabel('中文原文').fill(text);
+  await page.getByRole('button', { name: '生成音乐' }).click();
+  await expect(page.getByText('曲目已生成')).toBeVisible();
+  await page.getByLabel('分词与播放位置').locator('button:not([disabled])').first().click();
+  await expect(page.getByText('钢琴或弦乐采样加载失败，正在使用兼容合成音色。')).toBeVisible();
+  await expect(page.getByRole('button', { name: '暂停' })).toBeEnabled();
 });

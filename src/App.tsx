@@ -7,6 +7,7 @@ import { SequencerCanvas } from './components/SequencerCanvas';
 import { TextPanel } from './components/TextPanel';
 import { TransportBar } from './components/TransportBar';
 import { validateInput } from './domain/input';
+import type { Score } from './domain/types';
 import { composeScore } from './music/compose';
 import { initialAppState, reducer } from './state/reducer';
 import { analyzeText, initializeTextAnalyzer } from './text/analyze';
@@ -33,17 +34,40 @@ export function App() {
     }
   }
 
+  async function startPlayback(score: Score, fromSeconds: number) {
+    dispatch({ type: 'PLAY' });
+    try {
+      const fallback = await engineRef.current!.play(
+        score,
+        fromSeconds,
+        (playheadSeconds, tokenId) => dispatch({ type: 'PLAYHEAD', playheadSeconds, tokenId }),
+        () => dispatch({ type: 'STOP' }),
+      );
+      if (fallback === undefined) return;
+      dispatch({
+        type: 'NOTICE',
+        message: fallback ? '钢琴或弦乐采样加载失败，正在使用兼容合成音色。' : null,
+      });
+    } catch (error) {
+      dispatch({
+        type: 'PLAY_FAILED',
+        message: error instanceof Error ? error.message : '音频启动失败，请再次点击播放',
+      });
+    }
+  }
+
   function seekToken(tokenId: string) {
     const event = state.score?.noteEvents.find(
       (item) => item.trackId === 'melody' && item.tokenId === tokenId,
     );
     if (!event || !state.score) return;
-    engineRef.current?.seek(event.startBeat * 60 / state.score.settings.bpm);
+    const playheadSeconds = event.startBeat * 60 / state.score.settings.bpm;
     dispatch({
       type: 'SEEK',
-      playheadSeconds: event.startBeat * 60 / state.score.settings.bpm,
+      playheadSeconds,
       tokenId,
     });
+    void startPlayback(state.score, playheadSeconds);
   }
 
   const status = state.phase === 'generating'
@@ -108,24 +132,7 @@ export function App() {
         volume={state.volume}
         onPlay={async () => {
           if (!state.score) return;
-          dispatch({ type: 'PLAY' });
-          try {
-            const fallback = await engineRef.current!.play(
-              state.score,
-              state.playheadSeconds,
-              (playheadSeconds, tokenId) => dispatch({ type: 'PLAYHEAD', playheadSeconds, tokenId }),
-              () => dispatch({ type: 'STOP' }),
-            );
-            dispatch({
-              type: 'NOTICE',
-              message: fallback ? '钢琴或弦乐采样加载失败，正在使用兼容合成音色。' : null,
-            });
-          } catch (error) {
-            dispatch({
-              type: 'PLAY_FAILED',
-              message: error instanceof Error ? error.message : '音频启动失败，请再次点击播放',
-            });
-          }
+          await startPlayback(state.score, state.playheadSeconds);
         }}
         onPause={() => dispatch({ type: 'PAUSE', playheadSeconds: engineRef.current!.pause() })}
         onStop={() => { engineRef.current!.stop(); dispatch({ type: 'STOP' }); }}

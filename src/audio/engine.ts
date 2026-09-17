@@ -32,6 +32,7 @@ export class AudioEngine {
   private bankPreset: Score['settings']['timbre'] | null = null;
   private timer: number | null = null;
   private transportActive = false;
+  private playRequestId = 0;
 
   constructor(
     private readonly loadBank: (preset: Score['settings']['timbre']) => Promise<InstrumentBank>
@@ -44,13 +45,27 @@ export class AudioEngine {
     fromSeconds: number,
     onUpdate: (seconds: number, tokenId: string | null) => void,
     onEnded: () => void = () => undefined,
-  ): Promise<boolean> {
+  ): Promise<boolean | undefined> {
+    const requestId = ++this.playRequestId;
     await this.transport.unlock();
+    if (requestId !== this.playRequestId) return undefined;
     if (!this.bank || this.bankPreset !== score.settings.timbre) {
+      let loadedBank: InstrumentBank;
+      try {
+        loadedBank = await this.loadBank(score.settings.timbre);
+      } catch (error) {
+        if (requestId !== this.playRequestId) return undefined;
+        throw error;
+      }
+      if (requestId !== this.playRequestId) {
+        loadedBank.dispose();
+        return undefined;
+      }
       this.bank?.dispose();
-      this.bank = await this.loadBank(score.settings.timbre);
+      this.bank = loadedBank;
       this.bankPreset = score.settings.timbre;
     }
+    if (requestId !== this.playRequestId) return undefined;
     this.transport.cancel();
     scheduleScoreEvents(
       score.noteEvents,
@@ -76,12 +91,14 @@ export class AudioEngine {
   }
 
   pause(): number {
-    this.transport.pause();
+    this.playRequestId += 1;
+    if (this.transportActive) this.transport.pause();
     this.stopTimer();
     return this.transport.seconds;
   }
 
   stop(): void {
+    this.playRequestId += 1;
     if (this.transportActive) {
       this.transport.stop();
       this.transport.cancel();

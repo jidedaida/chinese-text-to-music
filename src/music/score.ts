@@ -17,7 +17,7 @@ export function canonicalMusicProjection(score: Score) {
       tones: token.tones,
       kind: token.kind,
     })),
-    tracks: score.tracks,
+    tracks: score.tracks.map(({ id, kind }) => ({ id, kind })),
     noteEvents: [...score.noteEvents].sort((left, right) =>
       left.startBeat - right.startBeat || left.id.localeCompare(right.id),
     ),

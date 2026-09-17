@@ -46,6 +46,31 @@
 - `docs/brainstorming/layout-options.svg`：可缩放的布局对比图。
 - `docs/brainstorming/layout-options.png`：布局对比预览图。
 
+## 本地运行
+
+```bash
+npm install
+npm run dev
+```
+
+使用桌面版 Chrome 或 Edge 打开 Vite 显示的本地地址。所有文字分析、作曲、播放和 WAV 渲染都在浏览器中完成。
+
+## 验证
+
+```bash
+npm run verify
+```
+
+该命令检查采样文件哈希、单元与组件测试、生产构建、Chromium 端到端流程和 300 字作曲性能。Windows 发布前另运行：
+
+```bash
+npm run test:e2e -- --project=edge
+```
+
+## 音源许可
+
+钢琴、提琴采样的来源和 CC BY 3.0 署名见 `NOTICE.md`。贝斯与轻打击乐由 Web Audio 实时合成。
+
 ## 状态
 
-正式设计已经通过，实施计划已整理到 `docs/superpowers/plans/2026-09-17-chinese-text-to-music-implementation.md`。目前尚未进入代码实现，下一步按计划分任务执行。
+第一版实现包含确定性中文文字分析、四声部作曲、二维音序器、实时播放、文字同步高亮和 WAV 下载。

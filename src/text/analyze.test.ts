@@ -29,4 +29,20 @@ describe('analyzeText', () => {
     expect(nonHanWords.map((token) => token.raw).join('')).toBe('A1');
     expect(nonHanWords.flatMap((token) => token.tones).every((tone) => tone === 0)).toBe(true);
   });
+
+  it('maps normalized tokens back to exact original spans', () => {
+    for (const source of ['  春風，河面。', 'e\u0301春風。', '春  風。']) {
+      const tokens = analyzeText(source);
+      for (const token of tokens) {
+        expect(source.slice(token.sourceStart, token.sourceEnd)).toBe(token.raw);
+      }
+    }
+
+    const leadingWhitespace = analyzeText('  春風，河面。');
+    expect(leadingWhitespace[0].sourceStart).toBe(2);
+    expect(leadingWhitespace.map((token) => token.raw).join('')).toBe('春風，河面。');
+
+    const decomposed = 'e\u0301春風。';
+    expect(analyzeText(decomposed).map((token) => token.raw).join('')).toBe(decomposed);
+  });
 });

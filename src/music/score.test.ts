@@ -28,6 +28,13 @@ describe('canonicalMusicProjection', () => {
     const projection = canonicalMusicProjection(score);
     expect(JSON.stringify(projection)).not.toContain('風');
     expect(JSON.stringify(projection)).not.toContain('sourceStart');
+    expect(JSON.stringify(projection)).not.toContain('旋律');
     expect(JSON.stringify(projection)).toContain('风');
+
+    const renamed = {
+      ...score,
+      tracks: score.tracks.map((track) => ({ ...track, label: '只改界面文案' })),
+    };
+    expect(canonicalMusicProjection(renamed)).toEqual(projection);
   });
 });

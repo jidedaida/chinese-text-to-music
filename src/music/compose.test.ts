@@ -24,6 +24,9 @@ describe('composeScore', () => {
       'bass',
       'percussion',
     ]);
+    for (const track of score.tracks) {
+      expect(score.noteEvents.some((event) => event.trackId === track.id)).toBe(true);
+    }
     for (const token of tokens.filter((item) => item.kind === 'word')) {
       expect(score.noteEvents.some((event) => event.tokenId === token.id)).toBe(true);
     }

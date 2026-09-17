@@ -21,6 +21,8 @@ const report = `# Composition performance baseline\n\n`
   + `- Runs: 10\n`
   + `- Median: ${median.toFixed(2)} ms\n`
   + `- Samples: ${samples.map((value) => value.toFixed(2)).join(', ')} ms\n`;
-await writeFile('docs/performance-baseline.md', report, 'utf8');
+if (process.argv.includes('--record')) {
+  await writeFile('docs/performance-baseline.md', report, 'utf8');
+}
 console.log(`Median composition time: ${median.toFixed(2)} ms`);
 if (median > 1000) process.exitCode = 1;

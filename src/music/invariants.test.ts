@@ -1,7 +1,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_SETTINGS } from '../domain/settings';
 import { analyzeText, initializeTextAnalyzer } from '../text/analyze';
+import longScore from '../../tests/fixtures/long.score.json';
+import mixedScore from '../../tests/fixtures/mixed.score.json';
 import shortPoem from '../../tests/fixtures/short-poem.score.json';
+import traditionalScore from '../../tests/fixtures/traditional.score.json';
 import { composeScore } from './compose';
 
 beforeAll(async () => initializeTextAnalyzer());
@@ -45,11 +48,16 @@ describe('score invariants', () => {
     expect(new Set(hashes).size).toBe(1);
   });
 
-  it('matches the checked-in mapping-v1 golden score', async () => {
-    const score = await composeScore(
-      analyzeText('春风吹过山谷，星光落在河面。'),
-      DEFAULT_SETTINGS,
-    );
-    expect(score.musicHash).toBe(shortPoem.musicHash);
+  it('matches every checked-in mapping-v1 golden score', async () => {
+    const cases = [
+      ['春风吹过山谷，星光落在河面。', shortPoem.musicHash],
+      ['春風吹過山谷，星光落在河面。', traditionalScore.musicHash],
+      ['春风AI2026，落在河面。', mixedScore.musicHash],
+      ['春风山谷星光河面清晨远方归来'.repeat(24).slice(0, 300), longScore.musicHash],
+    ] as const;
+    for (const [text, expectedHash] of cases) {
+      const score = await composeScore(analyzeText(text), DEFAULT_SETTINGS);
+      expect(score.musicHash).toBe(expectedHash);
+    }
   });
 });
