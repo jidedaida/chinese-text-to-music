@@ -8,4 +8,5 @@ test-results/
 .vite/
 .env
 .env.*
+!.env.preview
 *.log

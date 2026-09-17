@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 import type { TimbrePreset } from '../domain/types';
+import { withBasePath } from '../runtime/base-path';
 
 export interface Voice {
   triggerAttackRelease(note: number, duration: number, time: number, velocity: number): unknown;
@@ -49,9 +50,9 @@ export async function loadPresetBank(preset: TimbrePreset): Promise<InstrumentBa
   if (preset === 'soft-electronic') return createElectronicBank(false);
   const limiter = new Tone.Limiter(-1).toDestination();
   const output = new Tone.Gain(0.68).connect(limiter);
-  const piano = new Tone.Sampler({ urls: maps.piano, baseUrl: '/audio/piano/', release: 1 }).connect(output);
-  const violin = new Tone.Sampler({ urls: maps.violin, baseUrl: '/audio/violin/', release: 1.4 }).connect(output);
-  const cello = new Tone.Sampler({ urls: maps.cello, baseUrl: '/audio/cello/', release: 1.6 }).connect(output);
+  const piano = new Tone.Sampler({ urls: maps.piano, baseUrl: withBasePath('audio/piano/'), release: 1 }).connect(output);
+  const violin = new Tone.Sampler({ urls: maps.violin, baseUrl: withBasePath('audio/violin/'), release: 1.4 }).connect(output);
+  const cello = new Tone.Sampler({ urls: maps.cello, baseUrl: withBasePath('audio/cello/'), release: 1.6 }).connect(output);
   const bass = new Tone.PolySynth(Tone.Synth, {
     oscillator: { type: 'triangle' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.5, release: 0.5 },
   }).connect(output);
