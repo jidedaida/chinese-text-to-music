@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Score } from '../domain/types';
+import { drawTrackShape } from './sequencer-drawing';
 import { eventRectangle, eventUnderPoint } from './sequencer-geometry';
 
 interface Props {
@@ -18,6 +19,9 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 640, scrollLeft: 0 });
+  const activeToken = score.tokens.find((token) => token.id === activeTokenId);
+  const activeEvent = score.noteEvents.find((event) => event.tokenId === activeTokenId);
+  const activeTrack = score.tracks.find((track) => track.id === activeEvent?.trackId);
   const totalBeats = score.durationSeconds * score.settings.bpm / 60;
   const contentWidth = Math.max(640, totalBeats * METRICS.pixelsPerBeat + 32);
   useEffect(() => {
@@ -47,14 +51,14 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
     });
     for (const event of visible) {
       const rectangle = eventRectangle(event, METRICS);
-      context.fillStyle = COLORS[event.trackId] ?? '#777';
       context.globalAlpha = event.tokenId === activeTokenId ? 1 : 0.74;
       const x = rectangle.x - viewport.scrollLeft;
-      context.fillRect(x, rectangle.y, rectangle.width, rectangle.height);
-      if (event.tokenId === activeTokenId) {
-        context.strokeStyle = '#211f1b';
-        context.strokeRect(x - 1, rectangle.y - 1, rectangle.width + 2, rectangle.height + 2);
-      }
+      drawTrackShape(
+        context,
+        (score.tracks.find((track) => track.id === event.trackId)?.kind ?? 'melody'),
+        { ...rectangle, x },
+        COLORS[event.trackId] ?? '#777',
+      );
     }
     context.globalAlpha = 1;
     const playheadBeat = playheadSeconds * score.settings.bpm / 60;
@@ -91,7 +95,7 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
         />
       </div>
       <span className="sr-only" aria-live="polite">
-        当前词语 {activeTokenId ?? '无'}，时间 {playheadSeconds.toFixed(1)} 秒
+        当前词语“{activeToken?.raw ?? '无'}”，时间 {playheadSeconds.toFixed(1)} 秒，声部“{activeTrack?.label ?? '无'}”
       </span>
     </div>
   );
