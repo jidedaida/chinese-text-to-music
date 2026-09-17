@@ -4,6 +4,7 @@ export type InputValidation = {
 };
 
 const EFFECTIVE_CHARACTER = /[\p{Script=Han}\p{Letter}\p{Number}]/u;
+const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 export function countEffectiveCharacters(text: string): number {
   return Array.from(text.normalize('NFC')).filter((character) =>
@@ -21,21 +22,34 @@ export function sourceEffectiveCharacterAt(
   ordinal: number,
 ): SourceEffectiveCharacter | null {
   if (!Number.isInteger(ordinal) || ordinal < 1) return null;
-  const effectiveCharacters = Array.from(text.normalize('NFC')).filter((character) =>
-    EFFECTIVE_CHARACTER.test(character),
-  );
-  if (ordinal > effectiveCharacters.length) return null;
-
-  let previousCount = 0;
-  for (let index = 0; index < text.length;) {
-    const codePoint = text.codePointAt(index)!;
-    const nextIndex = index + (codePoint > 0xffff ? 2 : 1);
-    const count = countEffectiveCharacters(text.slice(0, nextIndex));
-    if (previousCount < ordinal && count >= ordinal) {
-      return { index, character: effectiveCharacters[ordinal - 1] };
+  let count = 0;
+  for (const part of GRAPHEMES.segment(text)) {
+    const normalized = part.segment.normalize('NFC');
+    const effectiveCharacters = Array.from(normalized).filter((character) =>
+      EFFECTIVE_CHARACTER.test(character),
+    );
+    const nextCount = count + effectiveCharacters.length;
+    if (ordinal > nextCount) {
+      count = nextCount;
+      continue;
     }
-    previousCount = count;
-    index = nextIndex;
+
+    const targetWithinPart = ordinal - count;
+    let previousPartCount = 0;
+    for (let localIndex = 0; localIndex < part.segment.length;) {
+      const codePoint = part.segment.codePointAt(localIndex)!;
+      const nextLocalIndex = localIndex + (codePoint > 0xffff ? 2 : 1);
+      const partCount = countEffectiveCharacters(part.segment.slice(0, nextLocalIndex));
+      if (previousPartCount < targetWithinPart && partCount >= targetWithinPart) {
+        return {
+          index: part.index + localIndex,
+          character: effectiveCharacters[targetWithinPart - 1],
+        };
+      }
+      previousPartCount = partCount;
+      localIndex = nextLocalIndex;
+    }
+    return null;
   }
   return null;
 }

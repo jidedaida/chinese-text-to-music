@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   countEffectiveCharacters,
+  sourceEffectiveCharacterAt,
   sourceIndexOfEffectiveCharacter,
   validateInput,
 } from './input';
@@ -40,5 +41,28 @@ describe('input validation', () => {
   it('skips a non-effective prepend character within a grapheme', () => {
     const source = `${'春'.repeat(300)}\u0600遠`;
     expect(sourceIndexOfEffectiveCharacter(source, 301)).toBe(301);
+  });
+
+  it('keeps overflow lookup normalization work linear across ignored text', () => {
+    const source = `${'春'.repeat(300)}${' '.repeat(20_000)}遠`;
+    const originalNormalize = String.prototype.normalize;
+    let normalizedCodeUnits = 0;
+    const normalizeSpy = vi.spyOn(String.prototype, 'normalize').mockImplementation(function (
+      this: string,
+      ...args: Parameters<String['normalize']>
+    ) {
+      normalizedCodeUnits += this.length;
+      return originalNormalize.apply(this, args);
+    });
+
+    try {
+      expect(sourceEffectiveCharacterAt(source, 301)).toEqual({
+        index: 20_300,
+        character: '遠',
+      });
+      expect(normalizedCodeUnits).toBeLessThanOrEqual(source.length * 4);
+    } finally {
+      normalizeSpy.mockRestore();
+    }
   });
 });
