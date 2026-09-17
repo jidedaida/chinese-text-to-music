@@ -191,3 +191,65 @@ test('uses the real Windows snapshot when taskkill fails', { timeout: 25_000 }, 
   assert.equal(isProcessAlive(child.pid), false);
   assert.equal(isProcessAlive(descendantPid), false);
 });
+
+test('refreshes Windows descendants after taskkill failure', { skip: process.platform !== 'win32', timeout: 25_000 }, async (t) => {
+  const childSource = [
+    "const { spawn } = require('node:child_process');",
+    "const descendant = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
+    'console.log(descendant.pid);',
+    'setInterval(() => {}, 1000);',
+  ].join(' ');
+  const child = spawn(process.execPath, ['-e', childSource], { windowsHide: true });
+  const exitPromise = waitForExit(child);
+  let descendantPid;
+  t.after(async () => {
+    const cleanupErrors = [];
+    for (const pid of [descendantPid, child.pid]) {
+      if (!pid || !isProcessAlive(pid)) continue;
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    for (const pid of [descendantPid, child.pid]) {
+      if (!pid) continue;
+      try {
+        await waitForProcessExit(pid);
+      } catch (error) {
+        cleanupErrors.push(error);
+      }
+    }
+    if (cleanupErrors.length > 0) {
+      throw new AggregateError(cleanupErrors, 'Could not clean up refreshed process test descendants');
+    }
+  });
+
+  descendantPid = await new Promise((resolve, reject) => {
+    let stdout = '';
+    child.stdout.setEncoding('utf8');
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk;
+      const newline = stdout.indexOf('\n');
+      if (newline >= 0) resolve(Number(stdout.slice(0, newline).trim()));
+    });
+    child.once('error', reject);
+  });
+
+  let snapshotCalls = 0;
+  await terminateProcessTree(child, 'SIGTERM', exitPromise, {
+    runTaskkill: async () => {
+      throw new Error('forced taskkill failure');
+    },
+    snapshotProcesses: async () => {
+      snapshotCalls += 1;
+      return snapshotCalls === 1
+        ? []
+        : [{ parentPid: child.pid, pid: descendantPid }];
+    },
+  });
+
+  assert.ok(snapshotCalls >= 2, 'fallback must refresh process relationships after taskkill failure');
+  assert.equal(isProcessAlive(child.pid), false);
+  assert.equal(isProcessAlive(descendantPid), false);
+});

@@ -4,6 +4,7 @@ const commandTimeoutMs = 2_000;
 const finalExitTimeoutMs = 2_000;
 const gracefulExitTimeoutMs = 5_000;
 const processSnapshotTimeoutMs = 10_000;
+const windowsTreeCleanupTimeoutMs = processSnapshotTimeoutMs * 2 + finalExitTimeoutMs;
 const processPollIntervalMs = 20;
 
 function withTimeout(promise, timeoutMs, label) {
@@ -156,7 +157,7 @@ async function waitForCommand(child, label, timeoutMs = commandTimeoutMs) {
   }
 }
 
-export async function snapshotWindowsProcesses() {
+export async function snapshotWindowsProcesses({ timeoutMs = processSnapshotTimeoutMs } = {}) {
   const command = [
     "$samples = (Get-Counter '\\Process(*)\\ID Process','\\Process(*)\\Creating Process ID' -ErrorAction SilentlyContinue).CounterSamples",
     '$groups = $samples | Group-Object InstanceName',
@@ -168,10 +169,20 @@ export async function snapshotWindowsProcesses() {
     '  }',
     '}',
   ].join('; ');
+  const systemRoot = process.env.SystemRoot ?? process.env.SYSTEMROOT;
   const powershell = spawn(
-    'pwsh.exe',
+    'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-Command', command],
-    { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
+    {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      env: systemRoot
+        ? {
+            ...process.env,
+            PSModulePath: `${systemRoot}\\System32\\WindowsPowerShell\\v1.0\\Modules`,
+          }
+        : process.env,
+    },
   );
   let stdout = '';
   let stderr = '';
@@ -186,7 +197,7 @@ export async function snapshotWindowsProcesses() {
   const outcome = await waitForCommand(
     powershell,
     'PowerShell Get-Counter process enumeration',
-    processSnapshotTimeoutMs,
+    timeoutMs,
   );
   if (outcome.signal || outcome.code !== 0) {
     throw new Error(
@@ -218,15 +229,17 @@ async function runTaskkillCommand(rootPid) {
   }
 }
 
-function descendantsOf(processes, rootPid) {
+function descendantsOfCaptured(processes, captured) {
   const descendants = [];
-  const queue = [{ depth: 0, pid: rootPid }];
+  const queue = [...captured.values()];
+  const seen = new Set(queue.map(({ pid }) => pid));
   while (queue.length > 0) {
     const parent = queue.shift();
     for (const processInfo of processes) {
-      if (processInfo.parentPid === parent.pid) {
+      if (processInfo.parentPid === parent.pid && !seen.has(processInfo.pid)) {
         const descendant = { depth: parent.depth + 1, pid: processInfo.pid };
         descendants.push(descendant);
+        seen.add(descendant.pid);
         queue.push(descendant);
       }
     }
@@ -234,41 +247,76 @@ function descendantsOf(processes, rootPid) {
   return descendants;
 }
 
+function mergeCapturedDescendants(captured, descendants) {
+  for (const descendant of descendants) {
+    const existing = captured.get(descendant.pid);
+    if (!existing || descendant.depth < existing.depth) {
+      captured.set(descendant.pid, descendant);
+    }
+  }
+}
+
 async function terminateCapturedWindowsTree(
   child,
   exitPromise,
   taskkillFailure,
   initialDescendants,
+  snapshotProcesses,
 ) {
+  const captured = new Map([[child.pid, { depth: 0, pid: child.pid }]]);
+  mergeCapturedDescendants(captured, initialDescendants);
   const terminationErrors = [];
-  for (const { pid } of initialDescendants.toSorted((left, right) => right.depth - left.depth)) {
-    if (!isProcessAlive(pid)) continue;
-    try {
-      process.kill(pid, 'SIGKILL');
-    } catch (error) {
-      if (error?.code !== 'ESRCH') terminationErrors.push(error);
-    }
-  }
-  if (isProcessAlive(child.pid)) {
-    try {
-      process.kill(child.pid, 'SIGKILL');
-    } catch (error) {
-      if (error?.code !== 'ESRCH') terminationErrors.push(error);
-    }
-  }
+  const cleanupDeadline = Date.now() + windowsTreeCleanupTimeoutMs;
 
-  const capturedPids = [...initialDescendants.map(({ pid }) => pid), child.pid];
+  const refresh = async () => {
+    const remainingMs = cleanupDeadline - Date.now();
+    if (remainingMs <= 0) {
+      throw new Error(`Timed out refreshing Playwright process tree ${child.pid}`);
+    }
+    const processes = await withTimeout(
+      snapshotProcesses({ timeoutMs: Math.min(processSnapshotTimeoutMs, remainingMs) }),
+      remainingMs,
+      `Windows process refresh for Playwright process tree ${child.pid}`,
+    );
+    mergeCapturedDescendants(captured, descendantsOfCaptured(processes, captured));
+  };
+
+  const killCaptured = () => {
+    const killErrors = [];
+    for (const { pid } of [...captured.values()].toSorted(
+      (left, right) => right.depth - left.depth,
+    )) {
+      if (!isProcessAlive(pid)) continue;
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch (error) {
+        if (error?.code !== 'ESRCH') killErrors.push(error);
+      }
+    }
+    return killErrors;
+  };
+
   try {
-    await waitForPidsToExit(
-      capturedPids,
-      finalExitTimeoutMs,
-      `Timed out terminating Playwright process tree ${child.pid}`,
-    );
-    await withTimeout(
-      exitPromise,
-      finalExitTimeoutMs,
-      `Playwright root process ${child.pid} exit after direct termination`,
-    );
+    await refresh();
+    while (Date.now() < cleanupDeadline) {
+      terminationErrors.push(...killCaptured());
+      const capturedPids = [...captured.keys()];
+      if (capturedPids.every((pid) => !isProcessAlive(pid))) {
+        await withTimeout(
+          exitPromise,
+          Math.min(finalExitTimeoutMs, Math.max(1, cleanupDeadline - Date.now())),
+          `Playwright root process ${child.pid} exit after direct termination`,
+        );
+        break;
+      }
+      await refresh();
+    }
+    const remainingPids = [...captured.keys()].filter(isProcessAlive);
+    if (remainingPids.length > 0) {
+      throw new Error(
+        `Timed out terminating Playwright process tree ${child.pid}; processes still alive: ${remainingPids.join(', ')}`,
+      );
+    }
   } catch (error) {
     terminationErrors.push(error);
   }
@@ -293,13 +341,14 @@ export async function terminateProcessTree(
   child,
   signal,
   exitPromise,
-  { runTaskkill = runTaskkillCommand } = {},
+  { runTaskkill = runTaskkillCommand, snapshotProcesses = snapshotWindowsProcesses } = {},
 ) {
   if (!isRunning(child)) return;
 
   if (process.platform === 'win32') {
-    const initialProcesses = await snapshotWindowsProcesses();
-    const initialDescendants = descendantsOf(initialProcesses, child.pid);
+    const initialProcesses = await snapshotProcesses();
+    const initialCaptured = new Map([[child.pid, { depth: 0, pid: child.pid }]]);
+    const initialDescendants = descendantsOfCaptured(initialProcesses, initialCaptured);
     const capturedPids = [
       ...initialDescendants.map(({ pid }) => pid),
       child.pid,
@@ -316,6 +365,7 @@ export async function terminateProcessTree(
         exitPromise,
         taskkillFailure,
         initialDescendants,
+        snapshotProcesses,
       );
       return;
     }
