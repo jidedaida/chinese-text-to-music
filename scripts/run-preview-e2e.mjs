@@ -2,6 +2,8 @@ import { spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { preview } from 'vite';
 import {
+  createSignalController,
+  findSingleAddedListener,
   isRunning,
   parsePreviewPort,
   terminateProcessTree,
@@ -16,23 +18,14 @@ function reportSecondaryFailure(label, error) {
 }
 
 const port = parsePreviewPort(process.env.PREVIEW_PORT);
-let resolveSignal;
-let receivedSignal;
-const signalPromise = new Promise((resolve) => {
-  resolveSignal = resolve;
+const signalController = createSignalController({
+  onFirstSignal(signal) {
+    process.exitCode = signalExitCodes[signal];
+  },
 });
-const handleSignal = (signal) => {
-  if (receivedSignal) return;
-  receivedSignal = signal;
-  process.exitCode = signalExitCodes[signal];
-  resolveSignal(signal);
-};
-const handleSigint = () => handleSignal('SIGINT');
-const handleSigterm = () => handleSignal('SIGTERM');
-process.once('SIGINT', handleSigint);
-process.once('SIGTERM', handleSigterm);
+signalController.install();
 
-const sigtermListenersBeforePreview = new Set(process.listeners('SIGTERM'));
+const sigtermListenersBeforePreview = process.listeners('SIGTERM');
 let server;
 let child;
 let childExitPromise;
@@ -48,9 +41,13 @@ try {
       strictPort: true,
     },
   });
-  for (const listener of process.listeners('SIGTERM')) {
-    if (!sigtermListenersBeforePreview.has(listener)) process.off('SIGTERM', listener);
-  }
+  // Vite 8 preview installs one exit-on-SIGTERM listener. Remove precisely that listener so
+  // this runner can await browser-tree and preview cleanup; server.close() removes its callback.
+  const viteSigtermListener = findSingleAddedListener(
+    sigtermListenersBeforePreview,
+    process.listeners('SIGTERM'),
+  );
+  process.off('SIGTERM', viteSigtermListener);
 
   const baseURL = new URL(server.config.base, `http://${host}:${port}/`).href;
   const cli = resolve('node_modules/@playwright/test/cli.js');
@@ -69,7 +66,7 @@ try {
 
   const outcome = await Promise.race([
     childExitPromise.then((result) => ({ type: 'exit', result })),
-    signalPromise.then((signal) => ({ type: 'signal', signal })),
+    signalController.signalPromise.then((signal) => ({ type: 'signal', signal })),
   ]);
   if (outcome.type === 'signal') {
     await terminateProcessTree(child, outcome.signal, childExitPromise);
@@ -82,12 +79,9 @@ try {
   primaryError = error;
   process.exitCode ||= 1;
 } finally {
-  process.off('SIGINT', handleSigint);
-  process.off('SIGTERM', handleSigterm);
-
   if (child && childExitPromise && isRunning(child)) {
     try {
-      await terminateProcessTree(child, receivedSignal ?? 'SIGTERM', childExitPromise);
+      await terminateProcessTree(child, signalController.signal ?? 'SIGTERM', childExitPromise);
     } catch (error) {
       if (primaryError || process.exitCode) reportSecondaryFailure('failed to stop Playwright', error);
       else {
@@ -108,6 +102,8 @@ try {
       }
     }
   }
+
+  signalController.remove();
 }
 
 if (primaryError) throw primaryError;
