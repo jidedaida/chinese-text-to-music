@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import type { Score } from '../domain/types';
 import {
-  sourceIndexOfEffectiveCharacter,
+  sourceEffectiveCharacterAt,
   validateInput,
 } from '../domain/input';
 
@@ -17,12 +17,11 @@ export function TextPanel({ text, score, activeTokenId, onChange, onSeekToken }:
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const validation = validateInput(text);
   const count = validation.count;
-  const overflowStart = validation.code === 'too-long'
-    ? sourceIndexOfEffectiveCharacter(text, 301)
+  const overflowCharacterAt = validation.code === 'too-long'
+    ? sourceEffectiveCharacterAt(text, 301)
     : null;
-  const overflowCharacter = overflowStart === null
-    ? ''
-    : Array.from(text.slice(overflowStart).normalize('NFC'))[0] ?? '';
+  const overflowStart = overflowCharacterAt?.index ?? null;
+  const overflowCharacter = overflowCharacterAt?.character ?? '';
 
   return (
     <section className="panel text-panel" aria-labelledby="text-heading">

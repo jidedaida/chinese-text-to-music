@@ -31,4 +31,14 @@ describe('input validation', () => {
     expect(sourceIndexOfEffectiveCharacter(source, 301)).toBe(301);
     expect(sourceIndexOfEffectiveCharacter(source, 302)).toBeNull();
   });
+
+  it('maps each effective letter inside a grapheme to its own source offset', () => {
+    const source = `${'春'.repeat(299)}क्ष`;
+    expect(sourceIndexOfEffectiveCharacter(source, 301)).toBe(301);
+  });
+
+  it('skips a non-effective prepend character within a grapheme', () => {
+    const source = `${'春'.repeat(300)}\u0600遠`;
+    expect(sourceIndexOfEffectiveCharacter(source, 301)).toBe(301);
+  });
 });

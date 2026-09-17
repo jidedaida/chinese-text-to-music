@@ -4,7 +4,6 @@ export type InputValidation = {
 };
 
 const EFFECTIVE_CHARACTER = /[\p{Script=Han}\p{Letter}\p{Number}]/u;
-const GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
 
 export function countEffectiveCharacters(text: string): number {
   return Array.from(text.normalize('NFC')).filter((character) =>
@@ -12,17 +11,37 @@ export function countEffectiveCharacters(text: string): number {
   ).length;
 }
 
-export function sourceIndexOfEffectiveCharacter(text: string, ordinal: number): number | null {
+export interface SourceEffectiveCharacter {
+  index: number;
+  character: string;
+}
+
+export function sourceEffectiveCharacterAt(
+  text: string,
+  ordinal: number,
+): SourceEffectiveCharacter | null {
   if (!Number.isInteger(ordinal) || ordinal < 1) return null;
-  let count = 0;
-  for (const part of GRAPHEMES.segment(text)) {
-    for (const character of Array.from(part.segment.normalize('NFC'))) {
-      if (!EFFECTIVE_CHARACTER.test(character)) continue;
-      count += 1;
-      if (count === ordinal) return part.index;
+  const effectiveCharacters = Array.from(text.normalize('NFC')).filter((character) =>
+    EFFECTIVE_CHARACTER.test(character),
+  );
+  if (ordinal > effectiveCharacters.length) return null;
+
+  let previousCount = 0;
+  for (let index = 0; index < text.length;) {
+    const codePoint = text.codePointAt(index)!;
+    const nextIndex = index + (codePoint > 0xffff ? 2 : 1);
+    const count = countEffectiveCharacters(text.slice(0, nextIndex));
+    if (previousCount < ordinal && count >= ordinal) {
+      return { index, character: effectiveCharacters[ordinal - 1] };
     }
+    previousCount = count;
+    index = nextIndex;
   }
   return null;
+}
+
+export function sourceIndexOfEffectiveCharacter(text: string, ordinal: number): number | null {
+  return sourceEffectiveCharacterAt(text, ordinal)?.index ?? null;
 }
 
 export function validateInput(text: string): InputValidation {

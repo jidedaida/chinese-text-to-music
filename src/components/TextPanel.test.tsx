@@ -36,4 +36,23 @@ describe('TextPanel', () => {
     );
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  it('locates and displays the exact effective character inside a grapheme', () => {
+    const text = `${'春'.repeat(299)}क्ष`;
+    render(
+      <TextPanel
+        text={text}
+        score={null}
+        activeTokenId={null}
+        onChange={vi.fn()}
+        onSeekToken={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByLabelText('中文原文') as HTMLTextAreaElement;
+    expect(screen.getByRole('alert')).toHaveTextContent('第 301 个有效字符“ष”');
+    fireEvent.click(screen.getByRole('button', { name: '定位超出部分' }));
+    expect(textarea.selectionStart).toBe(301);
+    expect(text.slice(textarea.selectionStart)).toBe('ष');
+  });
 });
