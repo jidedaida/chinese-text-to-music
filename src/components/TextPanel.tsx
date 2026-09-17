@@ -1,5 +1,9 @@
+import { useRef } from 'react';
 import type { Score } from '../domain/types';
-import { countEffectiveCharacters } from '../domain/input';
+import {
+  sourceIndexOfEffectiveCharacter,
+  validateInput,
+} from '../domain/input';
 
 interface Props {
   text: string;
@@ -10,7 +14,16 @@ interface Props {
 }
 
 export function TextPanel({ text, score, activeTokenId, onChange, onSeekToken }: Props) {
-  const count = countEffectiveCharacters(text);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const validation = validateInput(text);
+  const count = validation.count;
+  const overflowStart = validation.code === 'too-long'
+    ? sourceIndexOfEffectiveCharacter(text, 301)
+    : null;
+  const overflowCharacter = overflowStart === null
+    ? ''
+    : Array.from(text.slice(overflowStart).normalize('NFC'))[0] ?? '';
+
   return (
     <section className="panel text-panel" aria-labelledby="text-heading">
       <div className="panel-heading">
@@ -18,11 +31,27 @@ export function TextPanel({ text, score, activeTokenId, onChange, onSeekToken }:
         <span className={count > 300 ? 'count count-error' : 'count'}>{count}/300</span>
       </div>
       <textarea
+        ref={inputRef}
         aria-label="中文原文"
+        aria-invalid={validation.code === 'too-long'}
+        aria-describedby={validation.code === 'too-long' ? 'text-overflow-error' : undefined}
         value={text}
         onChange={(event) => onChange(event.target.value)}
         placeholder="输入 10～300 个有效字符"
       />
+      {validation.code === 'too-long' && overflowStart !== null && (
+        <div id="text-overflow-error" className="input-error" role="alert">
+          <span>
+            超过上限 {validation.count - 300} 个有效字符。第 301 个有效字符“{overflowCharacter}”及其后内容暂不能生成。
+          </span>
+          <button type="button" onClick={() => {
+            inputRef.current?.focus();
+            inputRef.current?.setSelectionRange(overflowStart, text.length);
+          }}>
+            定位超出部分
+          </button>
+        </div>
+      )}
       {score && (
         <div className="token-reader" aria-label="分词与播放位置">
           {score.tokens.map((token) => (
