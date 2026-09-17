@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Score } from '../domain/types';
 import { SequencerCanvas } from './SequencerCanvas';
@@ -26,12 +26,34 @@ describe('SequencerCanvas', () => {
         startBeat: 0, durationBeats: 1, midi: 60, velocity: 0.7,
       }],
     } as Score;
-    const { getByLabelText } = render(
+    const { container, getByLabelText } = render(
       <SequencerCanvas score={score} playheadSeconds={0} activeTokenId="token-0" onSeekToken={onSeekToken} />,
     );
-    expect(screen.getByText(/当前词语“春风”.*声部“主旋律”/u)).toBeInTheDocument();
-    expect(screen.queryByText('token-0')).not.toBeInTheDocument();
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).toHaveAttribute('aria-live', 'polite');
+    expect(liveRegion).toHaveTextContent(/当前词语“春风”.*声部“主旋律”/u);
+    expect(liveRegion).toHaveTextContent('时间 0.0 秒');
+    expect(liveRegion?.textContent).not.toContain('token-0');
     fireEvent.click(getByLabelText('二维音序器'), { clientX: 5, clientY: 194 });
     expect(onSeekToken).toHaveBeenCalledWith('token-0');
+  });
+
+  it('does not announce an accompaniment track when no token is active', () => {
+    const score = {
+      settings: { bpm: 84 }, durationSeconds: 30,
+      tokens: [],
+      tracks: [{ id: 'harmony', kind: 'harmony', label: '和声' }],
+      noteEvents: [{
+        id: 'harmony-0', tokenId: null, trackId: 'harmony',
+        startBeat: 0, durationBeats: 1, midi: 60, velocity: 0.7,
+      }],
+    } as unknown as Score;
+    const { container } = render(
+      <SequencerCanvas score={score} playheadSeconds={1.2} activeTokenId={null} onSeekToken={vi.fn()} />,
+    );
+
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).toHaveTextContent('当前词语“无”');
+    expect(liveRegion).toHaveTextContent('声部“无”');
   });
 });

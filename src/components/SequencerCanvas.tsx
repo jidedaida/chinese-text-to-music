@@ -20,7 +20,9 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewport, setViewport] = useState({ width: 640, scrollLeft: 0 });
   const activeToken = score.tokens.find((token) => token.id === activeTokenId);
-  const activeEvent = score.noteEvents.find((event) => event.tokenId === activeTokenId);
+  const activeEvent = activeTokenId === null
+    ? undefined
+    : score.noteEvents.find((event) => event.tokenId === activeTokenId);
   const activeTrack = score.tracks.find((track) => track.id === activeEvent?.trackId);
   const totalBeats = score.durationSeconds * score.settings.bpm / 60;
   const contentWidth = Math.max(640, totalBeats * METRICS.pixelsPerBeat + 32);
@@ -57,7 +59,7 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
         context,
         (score.tracks.find((track) => track.id === event.trackId)?.kind ?? 'melody'),
         { ...rectangle, x },
-        COLORS[event.trackId] ?? '#777',
+        COLORS[event.trackId] ?? '#777777',
       );
     }
     context.globalAlpha = 1;

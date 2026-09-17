@@ -38,6 +38,14 @@ describe('drawTrackShape', () => {
     expect(context.strokeRect).toHaveBeenCalledTimes(2);
   });
 
+  it('keeps harmony alpha valid for the six-digit fallback color', () => {
+    const context = createContext();
+
+    drawTrackShape(context, 'harmony', { x: 10, y: 20, width: 40, height: 8 }, '#777777');
+
+    expect(context.fillStyle).toBe('#77777755');
+  });
+
   it('clamps the harmony inset outline dimensions', () => {
     const context = createContext();
 
