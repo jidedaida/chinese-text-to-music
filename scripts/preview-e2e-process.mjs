@@ -3,6 +3,7 @@ import { spawn } from 'node:child_process';
 const commandTimeoutMs = 2_000;
 const finalExitTimeoutMs = 2_000;
 const gracefulExitTimeoutMs = 5_000;
+const processSnapshotTimeoutMs = 10_000;
 const processPollIntervalMs = 20;
 
 function withTimeout(promise, timeoutMs, label) {
@@ -57,7 +58,7 @@ export function createSignalController({ onFirstSignal = () => {}, target = proc
   };
 }
 
-export function findSingleAddedListener(before, after) {
+export function findSingleAddedListener(before, after, label = 'added') {
   const unmatchedBefore = [...before];
   const added = [];
   for (const listener of after) {
@@ -66,9 +67,37 @@ export function findSingleAddedListener(before, after) {
     else added.push(listener);
   }
   if (added.length !== 1) {
-    throw new Error(`Expected Vite preview to add exactly one SIGTERM listener; found ${added.length}`);
+    throw new Error(`Expected exactly one ${label} listener; found ${added.length}`);
   }
   return added[0];
+}
+
+export function removeViteExitListeners({
+  isCI,
+  processTarget,
+  sigtermBefore,
+  stdinEndBefore,
+  stdinTarget,
+}) {
+  const sigtermListener = findSingleAddedListener(
+    sigtermBefore,
+    processTarget.listeners('SIGTERM'),
+    'Vite SIGTERM',
+  );
+  let stdinEndListener;
+  if (!isCI) {
+    stdinEndListener = findSingleAddedListener(
+      stdinEndBefore,
+      stdinTarget.listeners('end'),
+      'Vite stdin end',
+    );
+    if (stdinEndListener !== sigtermListener) {
+      throw new Error('Expected Vite SIGTERM and stdin end listeners to be the same callback');
+    }
+  }
+
+  processTarget.off('SIGTERM', sigtermListener);
+  if (stdinEndListener) stdinTarget.off('end', stdinEndListener);
 }
 
 export function parsePreviewPort(value) {
@@ -95,8 +124,8 @@ function isProcessAlive(pid) {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    return error?.code === 'EPERM';
   }
 }
 
@@ -112,10 +141,10 @@ async function waitForPidsToExit(pids, timeoutMs, label) {
   }
 }
 
-async function waitForCommand(child, label) {
+async function waitForCommand(child, label, timeoutMs = commandTimeoutMs) {
   const exitPromise = waitForExit(child);
   try {
-    return await withTimeout(exitPromise, commandTimeoutMs, label);
+    return await withTimeout(exitPromise, timeoutMs, label);
   } catch (error) {
     if (isRunning(child)) child.kill('SIGKILL');
     try {
@@ -127,18 +156,20 @@ async function waitForCommand(child, label) {
   }
 }
 
-async function snapshotWindowsProcesses() {
+export async function snapshotWindowsProcesses() {
   const command = [
-    '$ErrorActionPreference = "Stop"',
-    'Get-Process | ForEach-Object {',
-    '  try {',
-    '    $parentProcess = $_.Parent',
-    '    if ($null -ne $parentProcess) { Write-Output "$($_.Id),$($parentProcess.Id)" }',
-    '  } catch {}',
+    "$samples = (Get-Counter '\\Process(*)\\ID Process','\\Process(*)\\Creating Process ID' -ErrorAction SilentlyContinue).CounterSamples",
+    '$groups = $samples | Group-Object InstanceName',
+    'foreach ($group in $groups) {',
+    "  $pidSample = $group.Group | Where-Object { $_.Path -like '*\\ID Process' } | Select-Object -First 1",
+    "  $parentSample = $group.Group | Where-Object { $_.Path -like '*\\Creating Process ID' } | Select-Object -First 1",
+    '  if ($null -ne $pidSample -and $null -ne $parentSample) {',
+    '    Write-Output "$([int]$pidSample.CookedValue),$([int]$parentSample.CookedValue)"',
+    '  }',
     '}',
   ].join('; ');
   const powershell = spawn(
-    'powershell.exe',
+    'pwsh.exe',
     ['-NoProfile', '-NonInteractive', '-Command', command],
     { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
   );
@@ -152,13 +183,17 @@ async function snapshotWindowsProcesses() {
   powershell.stderr.on('data', (chunk) => {
     stderr += chunk;
   });
-  const outcome = await waitForCommand(powershell, 'PowerShell process enumeration');
+  const outcome = await waitForCommand(
+    powershell,
+    'PowerShell Get-Counter process enumeration',
+    processSnapshotTimeoutMs,
+  );
   if (outcome.signal || outcome.code !== 0) {
     throw new Error(
-      `PowerShell process enumeration failed (${outcome.signal ?? outcome.code}): ${stderr.trim()}`,
+      `PowerShell Get-Counter process enumeration failed (${outcome.signal ?? outcome.code}): ${stderr.trim()}`,
     );
   }
-  return stdout
+  const relationships = stdout
     .split(/\r?\n/u)
     .map((line) => line.trim().split(',').map(Number))
     .filter(
@@ -166,6 +201,21 @@ async function snapshotWindowsProcesses() {
         Number.isInteger(pid) && pid > 0 && Number.isInteger(parentPid) && parentPid > 0,
     )
     .map(([pid, parentPid]) => ({ parentPid, pid }));
+  if (relationships.length === 0) {
+    throw new Error('PowerShell Get-Counter process enumeration returned zero relationships');
+  }
+  return relationships;
+}
+
+async function runTaskkillCommand(rootPid) {
+  const taskkill = spawn('taskkill.exe', ['/pid', String(rootPid), '/T', '/F'], {
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  const outcome = await waitForCommand(taskkill, 'taskkill');
+  if (outcome.signal || outcome.code !== 0) {
+    throw new Error(`taskkill failed with ${outcome.signal ?? `exit code ${outcome.code}`}`);
+  }
 }
 
 function descendantsOf(processes, rootPid) {
@@ -190,27 +240,8 @@ async function terminateCapturedWindowsTree(
   taskkillFailure,
   initialDescendants,
 ) {
-  let descendants = initialDescendants;
-  try {
-    if (isRunning(child)) {
-      const latestDescendants = descendantsOf(await snapshotWindowsProcesses(), child.pid);
-      const descendantsByPid = new Map(
-        [...initialDescendants, ...latestDescendants].map((processInfo) => [
-          processInfo.pid,
-          processInfo,
-        ]),
-      );
-      descendants = [...descendantsByPid.values()];
-    }
-  } catch (error) {
-    throw new AggregateError(
-      [taskkillFailure, error],
-      `Could not enumerate descendants of Playwright process ${child.pid}`,
-    );
-  }
-
   const terminationErrors = [];
-  for (const { pid } of descendants.toSorted((left, right) => right.depth - left.depth)) {
+  for (const { pid } of initialDescendants.toSorted((left, right) => right.depth - left.depth)) {
     if (!isProcessAlive(pid)) continue;
     try {
       process.kill(pid, 'SIGKILL');
@@ -226,7 +257,7 @@ async function terminateCapturedWindowsTree(
     }
   }
 
-  const capturedPids = [...descendants.map(({ pid }) => pid), child.pid];
+  const capturedPids = [...initialDescendants.map(({ pid }) => pid), child.pid];
   try {
     await waitForPidsToExit(
       capturedPids,
@@ -258,7 +289,12 @@ function signalProcessGroup(child, signal) {
   }
 }
 
-export async function terminateProcessTree(child, signal, exitPromise) {
+export async function terminateProcessTree(
+  child,
+  signal,
+  exitPromise,
+  { runTaskkill = runTaskkillCommand } = {},
+) {
   if (!isRunning(child)) return;
 
   if (process.platform === 'win32') {
@@ -268,16 +304,9 @@ export async function terminateProcessTree(child, signal, exitPromise) {
       ...initialDescendants.map(({ pid }) => pid),
       child.pid,
     ];
-    const taskkill = spawn('taskkill.exe', ['/pid', String(child.pid), '/T', '/F'], {
-      stdio: 'ignore',
-      windowsHide: true,
-    });
     let taskkillFailure;
     try {
-      const outcome = await waitForCommand(taskkill, 'taskkill');
-      if (outcome.signal || outcome.code !== 0) {
-        taskkillFailure = new Error(`taskkill failed with ${outcome.signal ?? `exit code ${outcome.code}`}`);
-      }
+      await runTaskkill(child.pid);
     } catch (error) {
       taskkillFailure = error;
     }

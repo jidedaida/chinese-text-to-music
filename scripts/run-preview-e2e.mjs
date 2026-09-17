@@ -3,9 +3,9 @@ import { resolve } from 'node:path';
 import { preview } from 'vite';
 import {
   createSignalController,
-  findSingleAddedListener,
   isRunning,
   parsePreviewPort,
+  removeViteExitListeners,
   terminateProcessTree,
   waitForExit,
 } from './preview-e2e-process.mjs';
@@ -26,6 +26,7 @@ const signalController = createSignalController({
 signalController.install();
 
 const sigtermListenersBeforePreview = process.listeners('SIGTERM');
+const stdinEndListenersBeforePreview = process.stdin.listeners('end');
 let server;
 let child;
 let childExitPromise;
@@ -41,13 +42,16 @@ try {
       strictPort: true,
     },
   });
-  // Vite 8 preview installs one exit-on-SIGTERM listener. Remove precisely that listener so
-  // this runner can await browser-tree and preview cleanup; server.close() removes its callback.
-  const viteSigtermListener = findSingleAddedListener(
-    sigtermListenersBeforePreview,
-    process.listeners('SIGTERM'),
-  );
-  process.off('SIGTERM', viteSigtermListener);
+  // Vite 8 preview installs the same exit callback on SIGTERM and, outside CI, stdin end.
+  // Remove precisely that pair so this runner owns awaited cleanup; server.close() still
+  // unregisters the callback from Vite's internal set and runs closePreviewServer hooks.
+  removeViteExitListeners({
+    isCI: process.env.CI === 'true',
+    processTarget: process,
+    sigtermBefore: sigtermListenersBeforePreview,
+    stdinEndBefore: stdinEndListenersBeforePreview,
+    stdinTarget: process.stdin,
+  });
 
   const baseURL = new URL(server.config.base, `http://${host}:${port}/`).href;
   const cli = resolve('node_modules/@playwright/test/cli.js');

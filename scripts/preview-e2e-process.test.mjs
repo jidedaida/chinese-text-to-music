@@ -7,6 +7,8 @@ import {
   findSingleAddedListener,
   isRunning,
   parsePreviewPort,
+  removeViteExitListeners,
+  snapshotWindowsProcesses,
   terminateProcessTree,
   waitForExit,
 } from './preview-e2e-process.mjs';
@@ -58,25 +60,69 @@ test('keeps signal handlers installed while ignoring duplicate signals', async (
   assert.equal(target.listenerCount('SIGTERM'), 0);
 });
 
-test('identifies only the single listener added by Vite', () => {
-  const target = new EventEmitter();
-  const existingListener = () => {};
-  const viteListener = () => {};
-  target.on('SIGTERM', existingListener);
-  const before = target.listeners('SIGTERM');
-  target.on('SIGTERM', viteListener);
+test('removes only the paired Vite process and stdin exit listeners', () => {
+  const processTarget = new EventEmitter();
+  const stdinTarget = new EventEmitter();
+  let existingCalls = 0;
+  let viteCalls = 0;
+  const existingListener = () => {
+    existingCalls += 1;
+  };
+  const viteListener = () => {
+    viteCalls += 1;
+  };
+  processTarget.on('SIGTERM', existingListener);
+  stdinTarget.on('end', existingListener);
+  const sigtermBefore = processTarget.listeners('SIGTERM');
+  const stdinEndBefore = stdinTarget.listeners('end');
+  processTarget.on('SIGTERM', viteListener);
+  stdinTarget.on('end', viteListener);
 
-  const addedListener = findSingleAddedListener(before, target.listeners('SIGTERM'));
-  assert.equal(addedListener, viteListener);
-  target.off('SIGTERM', addedListener);
-  assert.deepEqual(target.listeners('SIGTERM'), [existingListener]);
+  removeViteExitListeners({
+    isCI: false,
+    processTarget,
+    sigtermBefore,
+    stdinEndBefore,
+    stdinTarget,
+  });
+
+  processTarget.emit('SIGTERM');
+  stdinTarget.emit('end');
+  assert.equal(existingCalls, 2);
+  assert.equal(viteCalls, 0);
+  assert.deepEqual(processTarget.listeners('SIGTERM'), [existingListener]);
+  assert.deepEqual(stdinTarget.listeners('end'), [existingListener]);
   assert.throws(
-    () => findSingleAddedListener(before, [...before, viteListener, () => {}]),
-    /exactly one SIGTERM listener/u,
+    () => findSingleAddedListener(sigtermBefore, [...sigtermBefore, viteListener, () => {}], 'test'),
+    /exactly one test listener/u,
   );
 });
 
-test('terminates a spawned process tree', { timeout: 5_000 }, async (t) => {
+test('CI listener cleanup removes only the Vite SIGTERM listener', () => {
+  const processTarget = new EventEmitter();
+  const stdinTarget = new EventEmitter();
+  const existingSigterm = () => {};
+  const existingEnd = () => {};
+  const viteListener = () => {};
+  processTarget.on('SIGTERM', existingSigterm);
+  stdinTarget.on('end', existingEnd);
+  const sigtermBefore = processTarget.listeners('SIGTERM');
+  const stdinEndBefore = stdinTarget.listeners('end');
+  processTarget.on('SIGTERM', viteListener);
+
+  removeViteExitListeners({
+    isCI: true,
+    processTarget,
+    sigtermBefore,
+    stdinEndBefore,
+    stdinTarget,
+  });
+
+  assert.deepEqual(processTarget.listeners('SIGTERM'), [existingSigterm]);
+  assert.deepEqual(stdinTarget.listeners('end'), [existingEnd]);
+});
+
+test('uses the real Windows snapshot when taskkill fails', { timeout: 25_000 }, async (t) => {
   const childSource = [
     "const { spawn } = require('node:child_process');",
     "const descendant = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });",
@@ -123,7 +169,25 @@ test('terminates a spawned process tree', { timeout: 5_000 }, async (t) => {
     child.once('error', reject);
   });
 
-  await terminateProcessTree(child, 'SIGTERM', exitPromise);
+  if (process.platform === 'win32') {
+    const snapshot = await snapshotWindowsProcesses();
+    assert.ok(snapshot.length > 0, 'Windows process snapshot must contain relationships');
+    assert.ok(
+      snapshot.some(
+        ({ parentPid, pid }) => parentPid === child.pid && pid === descendantPid,
+      ),
+      `Windows process snapshot omitted ${child.pid}->${descendantPid}`,
+    );
+  }
+
+  await terminateProcessTree(child, 'SIGTERM', exitPromise, {
+    runTaskkill:
+      process.platform === 'win32'
+        ? async () => {
+            throw new Error('forced taskkill failure');
+          }
+        : undefined,
+  });
   assert.equal(isProcessAlive(child.pid), false);
   assert.equal(isProcessAlive(descendantPid), false);
 });
