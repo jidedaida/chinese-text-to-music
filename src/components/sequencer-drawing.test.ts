@@ -38,12 +38,28 @@ describe('drawTrackShape', () => {
     expect(context.strokeRect).toHaveBeenCalledTimes(2);
   });
 
+  it('clamps the harmony inset outline dimensions', () => {
+    const context = createContext();
+
+    drawTrackShape(context, 'harmony', { x: 10, y: 20, width: 2, height: 3 }, '#665fc2');
+
+    expect(context.strokeRect).toHaveBeenNthCalledWith(2, 12, 22, 0, 0);
+  });
+
   it('draws bass notes with a solid body and floor edge', () => {
     const context = createContext();
 
     drawTrackShape(context, 'bass', { x: 10, y: 20, width: 40, height: 8 }, '#27866d');
 
     expect(context.fillRect).toHaveBeenCalledTimes(2);
+  });
+
+  it('clamps the bass floor position for short notes', () => {
+    const context = createContext();
+
+    drawTrackShape(context, 'bass', { x: 10, y: 20, width: 40, height: 2 }, '#27866d');
+
+    expect(context.fillRect).toHaveBeenNthCalledWith(2, 10, 20, 40, 3);
   });
 
   it('draws percussion notes as diamonds', () => {
@@ -54,5 +70,16 @@ describe('drawTrackShape', () => {
     expect(context.moveTo).toHaveBeenCalledWith(30, 20);
     expect(context.lineTo).toHaveBeenCalledTimes(3);
     expect(context.closePath).toHaveBeenCalled();
+  });
+
+  it('keeps a short percussion diamond vertically centered', () => {
+    const context = createContext();
+
+    drawTrackShape(context, 'percussion', { x: 10, y: 20, width: 40, height: 6 }, '#d69a25');
+
+    expect(context.moveTo).toHaveBeenCalledWith(30, 19);
+    expect(context.lineTo).toHaveBeenNthCalledWith(1, 34, 23);
+    expect(context.lineTo).toHaveBeenNthCalledWith(2, 30, 27);
+    expect(context.lineTo).toHaveBeenNthCalledWith(3, 26, 23);
   });
 });
