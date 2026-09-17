@@ -11,9 +11,11 @@ import type { Score } from './domain/types';
 import { composeScore } from './music/compose';
 import { initialAppState, reducer } from './state/reducer';
 import { analyzeText, initializeTextAnalyzer } from './text/analyze';
+import { releaseLabel } from './release/channel';
 
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialAppState);
+  const previewLabel = releaseLabel();
   const engineRef = useRef<AudioEngine | null>(null);
   engineRef.current ??= new AudioEngine();
   useEffect(() => () => engineRef.current?.dispose(), []);
@@ -84,7 +86,10 @@ export function App() {
     <main className="app-shell">
       <header className="masthead">
         <div><h1>字谱</h1><p>让每一段中文拥有稳定的音乐指纹。</p></div>
-        <span className="privacy-mark">本地生成 · 不上传原文</span>
+        <div className="masthead-meta">
+          {previewLabel && <span className="preview-badge">{previewLabel}</span>}
+          <span className="privacy-mark">本地生成 · 不上传原文</span>
+        </div>
       </header>
       <Compatibility />
       {status && <div className="status" role="status">{status}</div>}
