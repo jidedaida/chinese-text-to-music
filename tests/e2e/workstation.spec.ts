@@ -12,6 +12,11 @@ test('generates a score, synchronizes UI state, and never transmits text', async
   page.on('response', (response) => {
     if (response.status() >= 400) failedAssets.push(`${response.status()} ${response.url()}`);
   });
+  page.on('requestfailed', (request) => {
+    failedAssets.push(
+      `${request.method()} ${request.url()} ${request.failure()?.errorText ?? 'unknown request failure'}`,
+    );
+  });
   await page.goto('./');
   if (process.env.EXPECT_PREVIEW_BADGE === '1') {
     await expect(page.getByText('测试版 · PREVIEW')).toBeVisible();
@@ -29,7 +34,6 @@ test('generates a score, synchronizes UI state, and never transmits text', async
   await expect(secondWord).toHaveClass(/active/u);
   await expect(page.getByRole('button', { name: '暂停' })).toBeEnabled();
   await expect(page.getByLabel('播放时间')).not.toHaveText(/0:00 \/ /u);
-  expect(failedAssets).toEqual([]);
   await page.getByRole('button', { name: '暂停' }).click();
   await expect(page.getByRole('button', { name: '播放' })).toBeEnabled();
   await page.getByRole('button', { name: '停止' }).click();
@@ -41,9 +45,11 @@ test('generates a score, synchronizes UI state, and never transmits text', async
   await page.getByLabel('中文原文').fill(`${text}清晨`);
   await expect(page.getByText('文字或参数已变化，请重新生成')).toBeVisible();
   expect(outbound.join('\n')).not.toContain(text);
-  await page.reload();
+  await page.waitForLoadState('networkidle');
+  await page.reload({ waitUntil: 'networkidle' });
   await expect(page.getByLabel('中文原文')).toHaveValue('');
   await expect(page.getByRole('button', { name: '生成音乐' })).toBeDisabled();
+  expect(failedAssets).toEqual([]);
 });
 
 test('exports a playable-looking WAV download', async ({ page }) => {
