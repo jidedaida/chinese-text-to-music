@@ -131,4 +131,24 @@ describe('App generation lifecycle', () => {
     expect(dependencies.analyze).toHaveBeenCalledWith(TEXT_A);
     expect(dependencies.compose).toHaveBeenCalledOnce();
   });
+
+  it('shows a retryable Chinese error while preserving text and the last score', async () => {
+    dependencies.initialize
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('dictionary chunk failed to load'));
+    render(<App />);
+
+    startGeneration(TEXT_A);
+    await screen.findByText('曲目已生成');
+    expect(screen.getByLabelText('二维音序器')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('中文原文'), { target: { value: TEXT_B } });
+    fireEvent.click(screen.getByRole('button', { name: '生成音乐' }));
+
+    expect(await screen.findByText('生成资源加载失败，请重试')).toBeInTheDocument();
+    expect(screen.queryByText('dictionary chunk failed to load')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('中文原文')).toHaveValue(TEXT_B);
+    expect(screen.getByLabelText('二维音序器')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '播放' })).toBeEnabled();
+  });
 });

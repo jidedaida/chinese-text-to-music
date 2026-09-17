@@ -36,11 +36,11 @@ export function App() {
       const score = await composeScore(analyzeText(text), settings);
       if (requestId !== generationRequestRef.current) return;
       dispatch({ type: 'GENERATION_SUCCEEDED', score });
-    } catch (error) {
+    } catch {
       if (requestId !== generationRequestRef.current) return;
       dispatch({
         type: 'GENERATION_FAILED',
-        message: error instanceof Error ? error.message : '生成失败，请重试',
+        message: '生成资源加载失败，请重试',
       });
     }
   }
@@ -59,10 +59,10 @@ export function App() {
         type: 'NOTICE',
         message: fallback ? '钢琴或弦乐采样加载失败，正在使用兼容合成音色。' : null,
       });
-    } catch (error) {
+    } catch {
       dispatch({
         type: 'PLAY_FAILED',
-        message: error instanceof Error ? error.message : '音频启动失败，请再次点击播放',
+        message: '音频启动失败，请再次点击播放重试',
       });
     }
   }
@@ -169,10 +169,10 @@ export function App() {
             anchor.click();
             URL.revokeObjectURL(url);
             dispatch({ type: 'EXPORT_FINISHED' });
-          } catch (error) {
+          } catch {
             dispatch({
               type: 'EXPORT_FAILED',
-              message: error instanceof Error ? error.message : 'WAV 导出失败，请关闭其他标签页后重试',
+              message: 'WAV 导出失败，请重试',
             });
           }
         }}
