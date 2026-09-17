@@ -67,7 +67,7 @@ for (const key of eager) {
   const size = (await stat(`dist/${file}`)).size;
   console.log(`${key}: ${(size / 1024).toFixed(1)} KiB`);
 }
-if (toneRuntimeMarkers.every((marker) => eagerToneMarkers.has(marker))) {
+if (eagerToneMarkers.size > 0) {
   const files = [...new Set(eagerToneMarkers.values())];
   throw new Error(`Eager build contains the Tone runtime: ${files.join(', ')}`);
 }

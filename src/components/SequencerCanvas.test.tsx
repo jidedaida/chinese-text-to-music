@@ -3,6 +3,56 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Score } from '../domain/types';
 import { SequencerCanvas } from './SequencerCanvas';
 
+function createCanvasContext() {
+  const highlightStrokes: Array<{
+    rectangle: [number, number, number, number];
+    strokeStyle: string | CanvasGradient | CanvasPattern;
+    lineWidth: number;
+    globalAlpha: number;
+  }> = [];
+  const context = {
+    scale: vi.fn(), clearRect: vi.fn(), fillRect: vi.fn(),
+    beginPath: vi.fn(), closePath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(),
+    roundRect: vi.fn(), fill: vi.fn(), stroke: vi.fn(), save: vi.fn(), restore: vi.fn(),
+    fillStyle: '', strokeStyle: '', lineWidth: 1, globalAlpha: 1,
+    strokeRect: vi.fn((x: number, y: number, width: number, height: number) => {
+      highlightStrokes.push({
+        rectangle: [x, y, width, height],
+        strokeStyle: context.strokeStyle,
+        lineWidth: context.lineWidth,
+        globalAlpha: context.globalAlpha,
+      });
+    }),
+  } as unknown as CanvasRenderingContext2D;
+  return { context, highlightStrokes };
+}
+
+function createScore(): Score {
+  return {
+    settings: { bpm: 84 }, durationSeconds: 30,
+    tokens: [
+      { id: 'token-0', raw: '春风', normalized: '春风', sourceStart: 0, sourceEnd: 2,
+        pinyin: ['chun1', 'feng1'], tones: [1, 1], kind: 'word' },
+      { id: 'token-1', raw: '星光', normalized: '星光', sourceStart: 2, sourceEnd: 4,
+        pinyin: ['xing1', 'guang1'], tones: [1, 1], kind: 'word' },
+    ],
+    tracks: [
+      { id: 'melody', kind: 'melody', label: '主旋律' },
+      { id: 'harmony', kind: 'harmony', label: '和声' },
+    ],
+    noteEvents: [
+      {
+        id: 'melody-0', tokenId: 'token-0', trackId: 'melody',
+        startBeat: 1, durationBeats: 1, midi: 60, velocity: 0.7,
+      },
+      {
+        id: 'harmony-0', tokenId: 'token-1', trackId: 'harmony',
+        startBeat: 3, durationBeats: 1, midi: 60, velocity: 0.7,
+      },
+    ],
+  } as Score;
+}
+
 describe('SequencerCanvas', () => {
   it('requests token seek when a melody note is clicked', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({
@@ -55,5 +105,57 @@ describe('SequencerCanvas', () => {
     const liveRegion = container.querySelector('[aria-live="polite"]');
     expect(liveRegion).toHaveTextContent('当前词语“无”');
     expect(liveRegion).toHaveTextContent('声部“无”');
+  });
+
+  it('draws an independent outer highlight only around the active melody event', () => {
+    const { context, highlightStrokes } = createCanvasContext();
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    const score = createScore();
+
+    const { rerender } = render(
+      <SequencerCanvas score={score} playheadSeconds={0} activeTokenId="token-0" onSeekToken={vi.fn()} />,
+    );
+
+    expect(highlightStrokes).toContainEqual({
+      rectangle: [19, 191, 22, 8],
+      strokeStyle: '#211f1b',
+      lineWidth: 2,
+      globalAlpha: 1,
+    });
+
+    highlightStrokes.length = 0;
+    rerender(
+      <SequencerCanvas score={score} playheadSeconds={0} activeTokenId={null} onSeekToken={vi.fn()} />,
+    );
+    expect(highlightStrokes).not.toContainEqual(expect.objectContaining({
+      rectangle: [19, 191, 22, 8],
+    }));
+
+    highlightStrokes.length = 0;
+    rerender(
+      <SequencerCanvas score={score} playheadSeconds={0} activeTokenId="token-1" onSeekToken={vi.fn()} />,
+    );
+    expect(highlightStrokes).not.toContainEqual(expect.objectContaining({
+      rectangle: [59, 191, 22, 8],
+    }));
+  });
+
+  it('keeps the live announcement stable until the active token or track changes', () => {
+    const score = createScore();
+    const { container, rerender } = render(
+      <SequencerCanvas score={score} playheadSeconds={0.1} activeTokenId="token-0" onSeekToken={vi.fn()} />,
+    );
+    const liveRegion = container.querySelector('[aria-live="polite"]');
+    expect(liveRegion).toHaveTextContent('当前词语“春风”，时间 0.1 秒，声部“主旋律”');
+
+    rerender(
+      <SequencerCanvas score={score} playheadSeconds={0.2} activeTokenId="token-0" onSeekToken={vi.fn()} />,
+    );
+    expect(liveRegion).toHaveTextContent('当前词语“春风”，时间 0.1 秒，声部“主旋律”');
+
+    rerender(
+      <SequencerCanvas score={score} playheadSeconds={0.3} activeTokenId="token-1" onSeekToken={vi.fn()} />,
+    );
+    expect(liveRegion).toHaveTextContent('当前词语“星光”，时间 0.3 秒，声部“和声”');
   });
 });

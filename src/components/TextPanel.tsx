@@ -5,6 +5,31 @@ import {
   validateInput,
 } from '../domain/input';
 
+const SOURCE_GRAPHEMES = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const OVERFLOW_EXCERPT_GRAPHEMES = 16;
+
+function overflowSourceExcerpt(text: string, sourceIndex: number): string {
+  const excerpt: string[] = [];
+  let includesSourceIndex = false;
+  let hasMore = false;
+
+  for (const part of SOURCE_GRAPHEMES.segment(text)) {
+    if (!includesSourceIndex) {
+      const partEnd = part.index + part.segment.length;
+      if (sourceIndex < part.index || sourceIndex >= partEnd) continue;
+      includesSourceIndex = true;
+    }
+
+    if (excerpt.length === OVERFLOW_EXCERPT_GRAPHEMES) {
+      hasMore = true;
+      break;
+    }
+    excerpt.push(part.segment);
+  }
+
+  return `${excerpt.join('')}${hasMore ? '…' : ''}`;
+}
+
 interface Props {
   text: string;
   score: Score | null;
@@ -22,6 +47,9 @@ export function TextPanel({ text, score, activeTokenId, onChange, onSeekToken }:
     : null;
   const overflowStart = overflowCharacterAt?.index ?? null;
   const overflowCharacter = overflowCharacterAt?.character ?? '';
+  const overflowExcerpt = overflowStart === null
+    ? ''
+    : overflowSourceExcerpt(text, overflowStart);
 
   return (
     <section className="panel text-panel" aria-labelledby="text-heading">
@@ -41,7 +69,8 @@ export function TextPanel({ text, score, activeTokenId, onChange, onSeekToken }:
       {validation.code === 'too-long' && overflowStart !== null && (
         <div id="text-overflow-error" className="input-error" role="alert">
           <span>
-            超过上限 {validation.count - 300} 个有效字符。第 301 个有效字符“{overflowCharacter}”及其后内容暂不能生成。
+            超过上限 {validation.count - 300} 个有效字符。第 301 个有效字符“{overflowCharacter}”及其后内容暂不能生成
+            。超出部分原文：“{overflowExcerpt}”。
           </span>
           <button type="button" onClick={() => {
             inputRef.current?.focus();

@@ -1286,17 +1286,7 @@ HEAD_SHA: current HEAD
 
 Expected: no remaining Critical or Important findings. Re-run Step 1 after any fix and commit the fix separately.
 
-- [ ] **Step 3: Push the verified branch**
-
-Run:
-
-```bash
-git push origin codex/implement-mvp
-```
-
-Expected: the remote branch advances to the local HEAD without force-pushing.
-
-- [ ] **Step 4: Enable workflow-based GitHub Pages**
+- [ ] **Step 3: Enable workflow-based GitHub Pages before the first preview push**
 
 First inspect the current state:
 
@@ -1316,22 +1306,31 @@ If Pages already exists, make its build type explicit:
 gh api --method PUT repos/jidedaida/chinese-text-to-music/pages -f build_type=workflow
 ```
 
-Expected: GitHub reports a workflow-based Pages configuration. Do not change repository visibility or create a custom domain.
+Expected: GitHub reports a workflow-based Pages configuration before the branch push starts the first deployment. Do not change repository visibility or create a custom domain.
 
 If either API call returns HTTP 403, stop and report the account or repository restriction. Do not silently switch hosting providers; the approved design requires the user to approve the documented static-hosting fallback first.
+
+- [ ] **Step 4: Push the verified branch and trigger the first deployment**
+
+Run:
+
+```bash
+git push origin codex/implement-mvp
+```
+
+Expected: the remote branch advances to the local HEAD without force-pushing. Its `push` event starts the Pages workflow even though the workflow file is not yet on the default branch.
 
 - [ ] **Step 5: Watch the deployment to completion**
 
 In PowerShell, run:
 
 ```powershell
-gh workflow run pages-preview.yml --ref codex/implement-mvp
-$pagesRunId = gh run list --workflow pages-preview.yml --branch codex/implement-mvp --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId'
-if (-not $pagesRunId) { throw 'The manually triggered Pages workflow is not visible yet; rerun the read-only list command.' }
+$pagesRunId = gh run list --workflow pages-preview.yml --branch codex/implement-mvp --event push --limit 1 --json databaseId --jq '.[0].databaseId'
+if (-not $pagesRunId) { throw 'The push-triggered Pages workflow is not visible yet; rerun the read-only list command.' }
 gh run watch $pagesRunId --exit-status
 ```
 
-Expected: the manually triggered `Pages preview` workflow completes successfully and reports the Pages deployment URL. If the list is temporarily empty, repeat only the read-only `gh run list` command before watching; do not trigger a second workflow.
+Expected: the push-triggered `Pages preview` workflow completes successfully and reports the Pages deployment URL. If the list is temporarily empty, repeat only the read-only `gh run list` command before watching; do not push again. Keep `workflow_dispatch` in the workflow so manual runs remain available after the workflow reaches the default branch.
 
 - [ ] **Step 6: Smoke-test the deployed site with Playwright**
 

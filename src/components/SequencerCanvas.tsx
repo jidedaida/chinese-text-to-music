@@ -15,6 +15,14 @@ const COLORS: Record<string, string> = {
   melody: '#cf5736', harmony: '#665fc2', bass: '#27866d', percussion: '#d69a25',
 };
 
+function playbackAnnouncement(
+  token: Score['tokens'][number] | undefined,
+  timeSeconds: number,
+  track: Score['tracks'][number] | undefined,
+) {
+  return `当前词语“${token?.raw ?? '无'}”，时间 ${timeSeconds.toFixed(1)} 秒，声部“${track?.label ?? '无'}”`;
+}
+
 export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekToken }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -24,6 +32,8 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
     ? undefined
     : score.noteEvents.find((event) => event.tokenId === activeTokenId);
   const activeTrack = score.tracks.find((track) => track.id === activeEvent?.trackId);
+  const [liveAnnouncement, setLiveAnnouncement] = useState(() =>
+    playbackAnnouncement(activeToken, playheadSeconds, activeTrack));
   const totalBeats = score.durationSeconds * score.settings.bpm / 60;
   const contentWidth = Math.max(640, totalBeats * METRICS.pixelsPerBeat + 32);
   useEffect(() => {
@@ -32,6 +42,9 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
       width: scrollRef.current?.clientWidth || current.width,
     }));
   }, []);
+  useEffect(() => {
+    setLiveAnnouncement(playbackAnnouncement(activeToken, playheadSeconds, activeTrack));
+  }, [activeTokenId, activeToken?.raw, activeTrack?.id, activeTrack?.label]);
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -53,14 +66,23 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
     });
     for (const event of visible) {
       const rectangle = eventRectangle(event, METRICS);
+      const track = score.tracks.find((candidate) => candidate.id === event.trackId)?.kind ?? 'melody';
       context.globalAlpha = event.tokenId === activeTokenId ? 1 : 0.74;
       const x = rectangle.x - viewport.scrollLeft;
       drawTrackShape(
         context,
-        (score.tracks.find((track) => track.id === event.trackId)?.kind ?? 'melody'),
+        track,
         { ...rectangle, x },
         COLORS[event.trackId] ?? '#777777',
       );
+      if (event.tokenId === activeTokenId && track === 'melody') {
+        context.save();
+        context.globalAlpha = 1;
+        context.strokeStyle = '#211f1b';
+        context.lineWidth = 2;
+        context.strokeRect(x - 1, rectangle.y - 1, rectangle.width + 2, rectangle.height + 2);
+        context.restore();
+      }
     }
     context.globalAlpha = 1;
     const playheadBeat = playheadSeconds * score.settings.bpm / 60;
@@ -97,7 +119,7 @@ export function SequencerCanvas({ score, playheadSeconds, activeTokenId, onSeekT
         />
       </div>
       <span className="sr-only" aria-live="polite">
-        当前词语“{activeToken?.raw ?? '无'}”，时间 {playheadSeconds.toFixed(1)} 秒，声部“{activeTrack?.label ?? '无'}”
+        {liveAnnouncement}
       </span>
     </div>
   );
