@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "benchmark": "tsx scripts/benchmark-compose.mts",
     "golden:write": "tsx scripts/write-golden-fixtures.mjs",
+    "samples:verify": "node scripts/verify-samples.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
