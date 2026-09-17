@@ -5,10 +5,17 @@ const text = '春风吹过山谷，星光落在河面。';
 
 test('generates a score, synchronizes UI state, and never transmits text', async ({ page }) => {
   const outbound: string[] = [];
+  const failedAssets: string[] = [];
   page.on('request', (request) => {
     outbound.push(`${request.method()} ${request.url()} ${request.postData() ?? ''}`);
   });
-  await page.goto('/');
+  page.on('response', (response) => {
+    if (response.status() >= 400) failedAssets.push(`${response.status()} ${response.url()}`);
+  });
+  await page.goto('./');
+  if (process.env.EXPECT_PREVIEW_BADGE === '1') {
+    await expect(page.getByText('测试版 · PREVIEW')).toBeVisible();
+  }
   await page.getByLabel('中文原文').fill(text);
   await page.getByRole('button', { name: '生成音乐' }).click();
   await expect(page.getByText('曲目已生成')).toBeVisible();
@@ -22,6 +29,7 @@ test('generates a score, synchronizes UI state, and never transmits text', async
   await expect(secondWord).toHaveClass(/active/u);
   await expect(page.getByRole('button', { name: '暂停' })).toBeEnabled();
   await expect(page.getByLabel('播放时间')).not.toHaveText(/0:00 \/ /u);
+  expect(failedAssets).toEqual([]);
   await page.getByRole('button', { name: '暂停' }).click();
   await expect(page.getByRole('button', { name: '播放' })).toBeEnabled();
   await page.getByRole('button', { name: '停止' }).click();
@@ -39,7 +47,7 @@ test('generates a score, synchronizes UI state, and never transmits text', async
 });
 
 test('exports a playable-looking WAV download', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.getByLabel('中文原文').fill(text);
   await page.getByRole('button', { name: '生成音乐' }).click();
   await expect(page.getByText('曲目已生成')).toBeVisible();
@@ -65,7 +73,7 @@ test('exports a playable-looking WAV download', async ({ page }) => {
 });
 
 test('supports keyboard focus and shows a narrow-screen notice', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('./');
   await page.keyboard.press('Tab');
   await expect(page.locator(':focus')).toBeVisible();
   await page.setViewportSize({ width: 800, height: 900 });
@@ -74,7 +82,7 @@ test('supports keyboard focus and shows a narrow-screen notice', async ({ page }
 
 test('falls back to synthesized voices when licensed samples fail to load', async ({ page }) => {
   await page.route('**/audio/**/*.mp3', (route) => route.abort('failed'));
-  await page.goto('/');
+  await page.goto('./');
   await page.getByLabel('中文原文').fill(text);
   await page.getByRole('button', { name: '生成音乐' }).click();
   await expect(page.getByText('曲目已生成')).toBeVisible();
