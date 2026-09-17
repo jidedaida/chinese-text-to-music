@@ -74,3 +74,23 @@ npm run test:e2e -- --project=edge
 ## 状态
 
 第一版实现包含确定性中文文字分析、四声部作曲、二维音序器、实时播放、文字同步高亮和 WAV 下载。
+
+## GitHub Pages 测试版
+
+`codex/implement-mvp` 每次推送都会在完整验证通过后更新测试版：
+
+https://jidedaida.github.io/chinese-text-to-music/
+
+测试版页面会显示“测试版 · PREVIEW”。它没有账户、分析统计或后端；输入原文、曲谱和 WAV 只存在于当前浏览器。
+
+本地复现 Pages 构建与浏览器流程：
+
+```bash
+npm run verify:preview
+```
+
+Windows 正式合并前仍需执行：
+
+```bash
+npm run test:e2e -- --project=edge
+```
