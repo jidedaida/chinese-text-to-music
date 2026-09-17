@@ -1,4 +1,3 @@
-import CompleteDict from '@pinyin-pro/data/complete';
 import {
   addDict,
   OutputFormat,
@@ -6,15 +5,19 @@ import {
   segment,
 } from 'pinyin-pro';
 import type { Token, ToneNumber } from '../domain/types';
+import { createRetryableLoader } from '../runtime/retryable-loader';
 import { normalizeIdentityTextWithMap } from './normalize';
 
 let initialized = false;
+const loadCompleteDictionary = createRetryableLoader(async () => {
+  const { default: completeDictionary } = await import('@pinyin-pro/data/complete');
+  addDict(completeDictionary);
+  initialized = true;
+});
 const REVERSE_MAX_MATCH = 1 as const;
 
 export async function initializeTextAnalyzer(): Promise<void> {
-  if (initialized) return;
-  addDict(CompleteDict);
-  initialized = true;
+  await loadCompleteDictionary();
 }
 
 function toneNumbers(value: string): ToneNumber[] {

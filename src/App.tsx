@@ -1,6 +1,5 @@
 import { useEffect, useReducer, useRef } from 'react';
-import { AudioEngine } from './audio/engine';
-import { exportScoreWav } from './audio/exporter';
+import { LazyAudioEngine } from './audio/lazy-engine';
 import { Compatibility } from './components/Compatibility';
 import { ControlPanel } from './components/ControlPanel';
 import { SequencerCanvas } from './components/SequencerCanvas';
@@ -16,8 +15,8 @@ import { releaseLabel } from './release/channel';
 export function App() {
   const [state, dispatch] = useReducer(reducer, initialAppState);
   const previewLabel = releaseLabel();
-  const engineRef = useRef<AudioEngine | null>(null);
-  engineRef.current ??= new AudioEngine();
+  const engineRef = useRef<LazyAudioEngine | null>(null);
+  engineRef.current ??= new LazyAudioEngine();
   useEffect(() => () => engineRef.current?.dispose(), []);
   const validation = validateInput(state.text);
 
@@ -149,6 +148,7 @@ export function App() {
           if (!state.score) return;
           dispatch({ type: 'EXPORT' });
           try {
+            const { exportScoreWav } = await import('./audio/exporter');
             const blob = await exportScoreWav(state.score);
             const url = URL.createObjectURL(blob);
             const anchor = document.createElement('a');

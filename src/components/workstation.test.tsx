@@ -33,7 +33,10 @@ describe('workstation', () => {
     fireEvent.change(input, { target: { value: '春风吹过山谷星光落在河面' } });
     expect(generate).toBeEnabled();
     fireEvent.click(generate);
-    await waitFor(() => expect(screen.getByText('曲目已生成')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByText('曲目已生成')).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
     fireEvent.change(input, { target: { value: '春风吹过山谷星光落在河面清晨' } });
     expect(screen.getByText('文字或参数已变化，请重新生成')).toBeInTheDocument();
   });
@@ -54,7 +57,10 @@ describe('workstation', () => {
       target: { value: '春风吹过山谷星光落在河面' },
     });
     fireEvent.click(screen.getByRole('button', { name: '生成音乐' }));
-    await waitFor(() => expect(screen.getByText('曲目已生成')).toBeInTheDocument());
+    await waitFor(
+      () => expect(screen.getByText('曲目已生成')).toBeInTheDocument(),
+      { timeout: 5000 },
+    );
 
     const firstWord = screen.getByLabelText('分词与播放位置').querySelector('button:not(:disabled)');
     expect(firstWord).not.toBeNull();
