@@ -86,8 +86,11 @@ https://jidedaida.github.io/chinese-text-to-music/
 本地复现 Pages 构建与浏览器流程：
 
 ```bash
+npm ci
 npm run verify:preview
 ```
+
+本地与 CI 使用 Node 24，并通过 `npm ci` 安装锁定依赖。首次启用 GitHub Pages 时，请在仓库 `Settings → Pages` 的 `Build and deployment` 中将 `Source` 设为 `GitHub Actions`。
 
 Windows 正式合并前仍需执行：
 
