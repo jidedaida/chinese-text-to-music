@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { App } from './App';
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe('App', () => {
   it('renders the product name', () => {
@@ -12,6 +16,19 @@ describe('App', () => {
     vi.stubEnv('VITE_RELEASE_CHANNEL', 'preview');
     render(<App />);
     expect(screen.getByText('测试版 · PREVIEW')).toBeInTheDocument();
-    vi.unstubAllEnvs();
+  });
+
+  it('hides the badge for production builds while preserving privacy text', () => {
+    vi.stubEnv('VITE_RELEASE_CHANNEL', 'production');
+    render(<App />);
+    expect(screen.queryByText('测试版 · PREVIEW')).not.toBeInTheDocument();
+    expect(screen.getByText('本地生成 · 不上传原文')).toBeInTheDocument();
+  });
+
+  it('hides the badge when the release channel is unset while preserving privacy text', () => {
+    vi.stubEnv('VITE_RELEASE_CHANNEL', undefined as unknown as string);
+    render(<App />);
+    expect(screen.queryByText('测试版 · PREVIEW')).not.toBeInTheDocument();
+    expect(screen.getByText('本地生成 · 不上传原文')).toBeInTheDocument();
   });
 });
