@@ -26,7 +26,7 @@ export function encodeWav(channels: Float32Array[], sampleRate: number): ArrayBu
   let offset = 44;
   for (let frame = 0; frame < frameCount; frame += 1) {
     for (const channel of channels) {
-      const sample = Math.max(-1, Math.min(1, channel[frame]));
+      const sample = Math.max(-0.999, Math.min(0.999, channel[frame]));
       view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
       offset += 2;
     }

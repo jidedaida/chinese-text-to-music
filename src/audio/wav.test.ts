@@ -13,4 +13,19 @@ describe('encodeWav', () => {
     expect(view.getUint32(24, true)).toBe(44_100);
     expect(view.getUint16(34, true)).toBe(16);
   });
+
+  it('leaves headroom when input samples exceed full scale', () => {
+    const bytes = encodeWav([
+      new Float32Array([2, -2]),
+      new Float32Array([2, -2]),
+    ], 44_100);
+    const view = new DataView(bytes);
+    const samples = [
+      view.getInt16(44, true),
+      view.getInt16(46, true),
+      view.getInt16(48, true),
+      view.getInt16(50, true),
+    ];
+    expect(Math.max(...samples.map(Math.abs))).toBeLessThan(32_767);
+  });
 });

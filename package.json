@@ -9,7 +9,7 @@
     "golden:write": "tsx scripts/write-golden-fixtures.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "node scripts/run-e2e.mjs",
     "check": "npm run test && npm run build"
   },
   "dependencies": {
